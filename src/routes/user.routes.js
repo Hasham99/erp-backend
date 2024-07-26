@@ -5,6 +5,10 @@ import { verifyJWT } from "../middlewares/auth.middleware.js"
 
 const router = Router();
 
+router.route("/", (req, res) => {
+    res.send("okai")
+})
+
 router.route("/register").post(
     upload.fields([
         {
