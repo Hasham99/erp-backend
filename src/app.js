@@ -26,14 +26,8 @@ import weightDataRouter from "./routes/weightData.routes.js";
 
 app.use("/api/v1/weight-data", weightDataRouter);
 
-
-
-app.use("/api", (req, res) => {
+app.use("/", (req, res) => {
     res.send("okay")
 })
-
-// http://localhost:8090//api/v1/users/register
-
-
 
 export { app }
