@@ -127,3 +127,4 @@ export const getStoredWeightData = async (req, res, next) => {
         return next(new apiError(500, "Internal Server Error"));
     }
 };
+
