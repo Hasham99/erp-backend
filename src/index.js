@@ -11,20 +11,23 @@ dotenv.config({
 });
 
 
-// 📌 Create HTTP Server & Attach Express App
 const server = createServer(app);
-
-// 📌 Setup WebSocket Server
 const io = new Server(server, {
-    cors: {
-        origin: process.env.CORS_ORIGIN,
-        credentials: true
-    }
+    cors: { origin: process.env.CORS_ORIGIN, methods: ["GET", "POST"] }
 });
 
-// Call WebSocket Setup Function
-setupWebSocket(io);
+// Handle WebSocket connections
+io.on("connection", async (socket) => {
+    console.log("📡 Client connected:", socket.id);
 
+    // Send stored weight data on connection
+    const records = await WeightData.find().sort({ createdAt: -1 }).limit(50);
+    socket.emit("weightData", { records });
+
+    socket.on("disconnect", () => {
+        console.log("❌ Client disconnected:", socket.id);
+    });
+});
 
 connectDb()
     .then(() => {
