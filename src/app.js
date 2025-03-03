@@ -28,7 +28,7 @@ app.use("/api/v1/weight-data", weightDataRouter);
 
 
 
-app.use("/", (req, res) => {
+app.use("/api", (req, res) => {
     res.send("okay")
 })
 
