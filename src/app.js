@@ -20,8 +20,14 @@ app.use(express.static("public"));
 app.use(cookieParser())
 
 import weightDataRouter from "./routes/weightData.routes.js";
-
 app.use("/api/v1/weight-data", weightDataRouter);
+
+import accountCodeRouter from "./routes/accountCode.routes.js";
+app.use("/api/v1/account-code", accountCodeRouter);
+
+import locationRoutes from "./routes/location.routes.js";
+app.use("/api/v1/locations", locationRoutes);
+
 
 app.use("/", (req, res) => {
     res.send("okay")
