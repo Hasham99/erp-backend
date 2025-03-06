@@ -3,12 +3,47 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { apiError } from "../utils/apiError.js";
 
-const getLocations = asyncHandler(async (req, res) => {
+const getLocationsTEMP = asyncHandler(async (req, res) => {
     const { ccno, page = 1, limit = "*" } = req.query;
 
     const query = {};
     if (ccno) {
         query.ccno = parseInt(ccno);
+    }
+
+    const totalRecords = await Location.countDocuments(query);
+    let locationQuery = Location.find(query);
+
+    // Apply pagination only if limit is specified (not "*")
+    if (limit !== "*") {
+        const parsedLimit = parseInt(limit) || 10; // Default to 10 if invalid limit
+        locationQuery = locationQuery
+            .skip((page - 1) * parsedLimit)
+            .limit(parsedLimit);
+    }
+
+    const locations = await locationQuery;
+
+    res.status(200).json(new apiResponse(200, {
+        totalRecords,
+        page: parseInt(page),
+        limit: limit === "*" ? "unlimited" : parseInt(limit),
+        locations
+    }, "Locations fetched successfully"));
+});
+const getLocations = asyncHandler(async (req, res) => {
+    const { search, page = 1, limit = "*" } = req.query;
+
+    const query = {};
+
+    if (search) {
+        if (!isNaN(search)) {
+            // If search is a number, match `ccno` exactly
+            query.ccno = parseInt(search);
+        } else {
+            // If search is a string, perform case-insensitive regex search on `ccname`
+            query.ccname = { $regex: search, $options: "i" };
+        }
     }
 
     const totalRecords = await Location.countDocuments(query);

@@ -31,12 +31,49 @@ import { apiError } from "../utils/apiError.js";
 // });
 
 
-const getAccountCodes = asyncHandler(async (req, res) => {
+const getAccountCodesTEMP = asyncHandler(async (req, res) => {
     const { code, page = 1, limit = "*" } = req.query;
 
     const query = {};
     if (code) {
         query.code = code;
+    }
+
+    const totalRecords = await AccountCode.countDocuments(query);
+
+    let accountCodesQuery = AccountCode.find(query);
+
+    // Apply pagination only if limit is specified (not "*")
+    if (limit !== "*") {
+        const parsedLimit = parseInt(limit) || 10; // Default to 10 if invalid limit
+        accountCodesQuery = accountCodesQuery
+            .skip((page - 1) * parsedLimit)
+            .limit(parsedLimit);
+    }
+
+    const accountCodes = await accountCodesQuery;
+
+    res.status(200).json(new apiResponse(200, {
+        totalRecords,
+        page: parseInt(page),
+        limit: limit === "*" ? "unlimited" : parseInt(limit),
+        accountCodes
+    }, "Account codes fetched successfully"));
+});
+
+const getAccountCodes = asyncHandler(async (req, res) => {
+    const { search, page = 1, limit = "*" } = req.query;
+
+    const query = {};
+
+    if (search) {
+        if (!isNaN(search)) {
+            // If search is a number, match `code` exactly
+            query.code = parseInt(search);
+        } else {
+            // If search is a string, perform case-insensitive regex search on `description`
+            query.description = { $regex: search, $options: "i" };
+        }
     }
 
     const totalRecords = await AccountCode.countDocuments(query);
