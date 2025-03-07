@@ -23,10 +23,16 @@ import weightDataRouter from "./routes/weightData.routes.js";
 app.use("/api/v1/weight-data", weightDataRouter);
 
 import accountCodeRouter from "./routes/accountCode.routes.js";
-app.use("/api/v1/account-code", accountCodeRouter);
+app.use("/api/v1/suppliers", accountCodeRouter);
 
 import locationRoutes from "./routes/location.routes.js";
 app.use("/api/v1/locations", locationRoutes);
+
+import accountRoutes from "./routes/account.routes.js";
+app.use("/api/v1/accounts", accountRoutes);
+
+import purchaseOrderRoutes from "./routes/purchaseOrder.routes.js";
+app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 
 
 app.use("/", (req, res) => {
