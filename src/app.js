@@ -34,7 +34,6 @@ app.use("/api/v1/accounts", accountRoutes);
 import purchaseOrderRoutes from "./routes/purchaseOrder.routes.js";
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 
-
 app.use("/", (req, res) => {
     res.send("okay")
 })
