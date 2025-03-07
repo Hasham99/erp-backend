@@ -35,7 +35,7 @@ import purchaseOrderRoutes from "./routes/purchaseOrder.routes.js";
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 
 app.use("/", (req, res) => {
-    res.send("okay")
+    res.send(`<h3>/api/v1/weight-data </br> /api/v1/suppliers </br> /api/v1/locations </br> /api/v1/accounts </br> /api/v1/purchase-orders</h3>`)
 })
 
 export { app }
