@@ -3,7 +3,7 @@ import { createPurchaseOrder, getPurchaseOrders } from "../controllers/purchaseO
 
 const router = express.Router();
 
-router.get("/", createPurchaseOrder); // GET - Fetch accounts with search & pagination
-router.post("/", getPurchaseOrders); // POST - Create a new account
+router.get("/", getPurchaseOrders); // GET - Fetch accounts with search & pagination
+router.post("/", createPurchaseOrder); // POST - Create a new account
 
 export default router;
