@@ -5,7 +5,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
     crop: { type: String, required: true },
     item: { type: String, required: true },
     type: { type: String, required: true },
-    year: { type: Number, required: true },
+    year: { type: String, required: true },
     purchase_order_number: { type: String, required: true, unique: true },
     note: { type: String, default: null },
 
@@ -29,7 +29,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
     order_rate: { type: Number, required: true },
     rate_per_kg: { type: Number, required: true },
     brokery_terms: { type: String, default: null },
-    replace_reject: { type: Boolean, default: false },
+    replace_reject: { type: String, default: null },
 
     // Freight
     freight_per_kg: { type: Number, default: 0 },

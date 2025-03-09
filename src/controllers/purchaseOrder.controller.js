@@ -12,7 +12,7 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
         const query = {};
 
         // Define number fields for exact match
-        const numberFields = ["year", "order_rate", "rate_per_kg", "freight_per_kg", "commission_per_bag", "bardana_per_bag", "misc_exp_per_bag"];
+        const numberFields = ["order_rate", "rate_per_kg", "freight_per_kg", "commission_per_bag", "bardana_per_bag", "misc_exp_per_bag"];
 
         // Loop through query parameters and build search dynamically
         Object.keys(req.query).forEach((key) => {
