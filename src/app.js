@@ -2,18 +2,30 @@ import express from "express";
 import cors from "cors"
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import dotenv from "dotenv";  // Import dotenv
+dotenv.config();  // Load environment variables
 
 const app = express();
+// app.use(cors({
+//     origin: process.env.CORS_ORIGIN,
+//     credentials: true
+
+// }))
+// Ensure CORS_ORIGIN is defined
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : [];
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true
+}));
 
-}))
 app.use(morgan("dev")); // Logs requests in Apache format
-
-
-
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
