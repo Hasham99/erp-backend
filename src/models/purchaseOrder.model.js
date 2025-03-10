@@ -10,7 +10,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
     note: { type: String, default: null },
 
     // Supplier Information
-    supplier: { type: String, required: true },
+    supplier: { type: mongoose.Schema.Types.ObjectId, ref: "AccountCode", required: true }, // Reference to Supplier
     agent: { type: String, default: null },
     details: { type: String, default: null },
 
@@ -18,7 +18,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
     purchase_order_date: { type: Date, required: true },
     start_date: { type: Date, required: true },
     delivery_date: { type: Date, required: true },
-    location: { type: String, required: true },
+    location: { type: mongoose.Schema.Types.ObjectId, ref: "Location", required: true }, // Reference to Location
 
     // Delivery Modes
     min_delivery_mode: { type: String, enum: ["Traller", "Truck", "Bag", "Katta", "KG"], required: true },
@@ -47,6 +47,9 @@ const PurchaseOrderSchema = new mongoose.Schema({
         chobba_rs: { type: Number, default: 0 },
         look_rs: { type: Number, default: 0 }
     },
+
+    // Accounts Reference
+    account: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true }, // Reference to Account
 
     // Amounts
     payment_term: { type: String, required: true },

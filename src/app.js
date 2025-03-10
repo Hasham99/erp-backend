@@ -48,6 +48,9 @@ app.use("/api/v1/locations", locationRoutes);
 import accountRoutes from "./routes/account.routes.js";
 app.use("/api/v1/accounts", accountRoutes);
 
+import accSuppLocRoutes from "./routes/acc-supp-loc.routes.js";
+app.use("/api/v1/all", accSuppLocRoutes);
+
 import purchaseOrderRoutes from "./routes/purchaseOrder.routes.js";
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 
