@@ -68,6 +68,9 @@ app.use("/api/v2/raw-material", rawMaterialRoutes);
 import deductionRuleRoutes from "./routes/deductionRule.routes.js";
 app.use("/api/v2/deduction-rule", deductionRuleRoutes);
 
+import dedProLocNewSuppRawMatRoutes from "./routes/ded-loc-newSupp-rawMat.routes.js";
+app.use("/api/v2/all", dedProLocNewSuppRawMatRoutes);
+
 app.use("/", (req, res) => {
     res.send(`  
         <h4>
@@ -85,6 +88,7 @@ app.use("/", (req, res) => {
         /api/v2/bi-product </br>
         /api/v2/raw-material </br>
         /api/v2/deduction-rule </br>
+        /api/v2/all </br>
         </h4>
         `)
 })
