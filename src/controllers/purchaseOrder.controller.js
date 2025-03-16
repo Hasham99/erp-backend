@@ -5,6 +5,7 @@ import { apiError } from "../utils/apiError.js";
 import AccountCode from "../models/AccountCode.model.js";
 import Account from "../models/Account.model.js";
 import Location from "../models/Location.model.js";
+import fetch from "node-fetch";
 
 // @desc   Get Purchase Orders with search & pagination
 // @route  GET /api/purchase-orders
@@ -186,7 +187,7 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
         }
 
         // Format PO Number (Ensure five-digit zero-padding)
-        const formattedPONumber = `PO-${String(nextNumber).padStart(5, "0")}-${year}`;
+        const formattedPONumber = `PO-${String(nextNumber).padStart(5, "0")}-2025`;
 
         // Create new Purchase Order
         const newOrder = new PurchaseOrder({
