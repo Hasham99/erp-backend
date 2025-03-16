@@ -49,7 +49,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
     },
 
     // Accounts Reference
-    account: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true }, // Reference to Account
+    account: { type: mongoose.Schema.Types.ObjectId, ref: "RawMaterial", required: true }, // Reference to Account
 
     // Amounts
     payment_term: { type: String, required: true },
