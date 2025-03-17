@@ -186,8 +186,8 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
             }
         }
 
-        // Format PO Number (Ensure five-digit zero-padding)
-        const formattedPONumber = `PO-${String(nextNumber).padStart(5, "0")}-2025`;
+        // Format PO Number (Ensure six-digit zero-padding)
+        const formattedPONumber = `PO-${String(nextNumber).padStart(6, "0")}`;
 
         // Create new Purchase Order
         const newOrder = new PurchaseOrder({
