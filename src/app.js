@@ -69,6 +69,7 @@ import deductionRuleRoutes from "./routes/deductionRule.routes.js";
 app.use("/api/v2/deduction-rule", deductionRuleRoutes);
 
 import dedProLocNewSuppRawMatRoutes from "./routes/ded-loc-newSupp-rawMat.routes.js";
+import { errorHandler } from "./middlewares/error.middleware.js";
 app.use("/api/v2/all", dedProLocNewSuppRawMatRoutes);
 
 app.use("/", (req, res) => {
@@ -92,5 +93,8 @@ app.use("/", (req, res) => {
         </h4>
         `)
 })
+
+// Global error handler
+app.use(errorHandler); 
 
 export { app }

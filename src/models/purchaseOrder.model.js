@@ -11,7 +11,8 @@ const PurchaseOrderSchema = new mongoose.Schema({
 
     // Supplier Information
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", required: true }, // Reference to Supplier
-    agent: { type: String, default: null },
+    agent: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", required: true }, // Reference to Supplier
+    // agent: { type: String, default: null },
     details: { type: String, default: null },
 
     // Order Details
