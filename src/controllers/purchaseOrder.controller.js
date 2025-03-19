@@ -39,9 +39,10 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
 
     const totalRecords = await PurchaseOrder.countDocuments(query);
     let purchaseOrdersQuery = PurchaseOrder.find(query)
-      .populate("supplier", "code description") // Populate Supplier Info
+      .populate("supplier", "supplierId name") // Populate Supplier Info
+      .populate("agent", "supplierId name") // Populate Supplier Info
       .populate("location", "ccno ccname") // Populate Location Info
-      .populate("account", "acno item item_category"); // Populate Account Info
+      .populate("account", "materialId category subCategory variety subVariety whiteOrBrown itemYear"); // Populate Account Info
 
     // Apply pagination if limit is not "*"
     if (limit !== "*") {
