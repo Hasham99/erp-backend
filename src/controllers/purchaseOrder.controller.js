@@ -70,7 +70,7 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
   }
 });
 
-const createPurchaseOrderTemp = asyncHandler(async (req, res, next) => {
+const createPurchaseOrder = asyncHandler(async (req, res, next) => {
   try {
     const {
       crop,
@@ -151,6 +151,9 @@ const createPurchaseOrderTemp = asyncHandler(async (req, res, next) => {
     if (!supplierDoc)
       return next(new apiError(400, "Invalid supplier reference"));
 
+    const agentDoc = await Supplier.findOne({ supplierId: agent }); // Find agent by supplierId
+    if (!agentDoc) return next(new apiError(400, "Invalid agent reference"));
+
     const locationDoc = await Location.findOne({ ccno: location });
     if (!locationDoc)
       return next(new apiError(400, "Invalid location reference"));
@@ -184,7 +187,7 @@ const createPurchaseOrderTemp = asyncHandler(async (req, res, next) => {
       purchase_order_number: formattedPONumber,
       note,
       supplier: supplierDoc._id,
-      agent,
+      agent: agentDoc._id, // Store ObjectId instead of a string
       details,
       purchase_order_date,
       start_date,
@@ -216,130 +219,6 @@ const createPurchaseOrderTemp = asyncHandler(async (req, res, next) => {
       .json(
         new apiResponse(201, savedOrder, "Purchase Order created successfully")
       );
-  } catch (error) {
-    next(new apiError(500, error.message || "Error creating Purchase Order"));
-  }
-});
-const createPurchaseOrder = asyncHandler(async (req, res, next) => {
-  try {
-    const {
-      crop,
-      item,
-      type,
-      year,
-      note,
-      supplier,
-      agent,
-      details,
-      purchase_order_date,
-      start_date,
-      delivery_date,
-      location,
-      min_delivery_mode,
-      max_delivery_mode,
-      delivery_terms,
-      order_rate,
-      rate_per_kg,
-      brokery_terms,
-      replace_reject,
-      freight_per_kg,
-      commission_per_bag,
-      bardana_per_bag,
-      misc_exp_per_bag,
-      product_parameters,
-      payment_term,
-      weight_total_amount,
-      landed_cost,
-      account,
-    } = req.body;
-
-     const requiredFields = [
-      "crop",
-      "item",
-      "type",
-      "year",
-      "supplier",
-      "purchase_order_date",
-      "start_date",
-      "delivery_date",
-      "location",
-      "min_delivery_mode",
-      "max_delivery_mode",
-      "delivery_terms",
-      "order_rate",
-      "rate_per_kg",
-      "payment_term",
-      "weight_total_amount",
-      "landed_cost",
-      "account",
-    ];
-
-    const missingFields = requiredFields.filter((field) => !req.body[field]);
-
-    if (missingFields.length > 0) {
-      return next(
-        new apiError(
-          400,
-          `Missing required fields`,
-        //   `Missing required fields: ${missingFields.join(", ")}`,
-          missingFields
-        )
-      );
-    }
-
-    // Validate Supplier, Location, and Account References
-const supplierDoc = await Supplier.findOne({ supplierId: supplier });
-if (!supplierDoc) return next(new apiError(400, "Invalid supplier reference"));
-
-const agentDoc = await Supplier.findOne({ supplierId: agent }); // Find agent by supplierId
-if (!agentDoc) return next(new apiError(400, "Invalid agent reference"));
-
-const locationDoc = await Location.findOne({ ccno: location });
-if (!locationDoc) return next(new apiError(400, "Invalid location reference"));
-
-const accountDoc = await RawMaterial.findOne({ materialId: account });
-if (!accountDoc) return next(new apiError(400, "Invalid account reference"));
-
-// Create new Purchase Order
-const newOrder = new PurchaseOrder({
-  crop,
-  item,
-  type,
-  year,
-  purchase_order_number: formattedPONumber,
-  note,
-  supplier: supplierDoc._id, // Store ObjectId
-  agent: agentDoc._id, // Store ObjectId instead of a string
-  details,
-  purchase_order_date,
-  start_date,
-  delivery_date,
-  location: locationDoc._id, // Store ObjectId
-  min_delivery_mode,
-  max_delivery_mode,
-  delivery_terms,
-  order_rate,
-  rate_per_kg,
-  brokery_terms,
-  replace_reject,
-  freight_per_kg,
-  commission_per_bag,
-  bardana_per_bag,
-  misc_exp_per_bag,
-  product_parameters,
-  payment_term,
-  weight_total_amount,
-  landed_cost,
-  account: accountDoc._id, // Store ObjectId
-});
-
-// Save to database
-const savedOrder = await newOrder.save();
-
-res.status(201).json(
-  new apiResponse(201, savedOrder, "Purchase Order created successfully")
-);
-
   } catch (error) {
     next(new apiError(500, error.message || "Error creating Purchase Order"));
   }
