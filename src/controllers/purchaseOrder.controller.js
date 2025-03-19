@@ -164,20 +164,43 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       return next(new apiError(400, "Invalid account reference"));
 
     // **Generate PO Number Sequentially**
-    const lastOrder = await PurchaseOrder.findOne({ year }).sort({
-      createdAt: -1,
-    });
+    // const lastOrder = await PurchaseOrder.findOne({ year }).sort({
+    //   createdAt: -1,
+    // });
 
-    let nextNumber = 1; // Default if no existing PO
-    if (lastOrder && lastOrder.purchase_order_number) {
-      const match = lastOrder.purchase_order_number.match(/PO-(\d+)-\d{4}/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+    // let nextNumber = 1; // Default if no existing PO
+    // if (lastOrder && lastOrder.purchase_order_number) {
+    //   const match = lastOrder.purchase_order_number.match(/PO-(\d+)-\d{4}/);
+    //   if (match) {
+    //     nextNumber = parseInt(match[1]) + 1;
+    //   }
+    // }
+
+    // // Format PO Number (Ensure six-digit zero-padding)
+    // const formattedPONumber = `PO-${String(nextNumber).padStart(6, "0")}`;
+
+    const generatePONumber = async () => {
+      const lastOrder = await PurchaseOrder.findOne().sort({ createdAt: -1 });
+    
+      let nextNumber = 1; // Default if no existing PO
+      if (lastOrder && lastOrder.purchase_order_number) {
+        const match = lastOrder.purchase_order_number.match(/PO-(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
       }
+    
+      return `PO-${String(nextNumber).padStart(6, "0")}`;
+    };
+    // Inside your `createPurchaseOrder` function
+    const formattedPONumber = await generatePONumber();
+
+    // Ensure uniqueness by checking before saving
+    const existingOrder = await PurchaseOrder.findOne({ purchase_order_number: formattedPONumber });
+    if (existingOrder) {
+      return next(new apiError(500, "Duplicate PO number detected, please try again"));
     }
 
-    // Format PO Number (Ensure six-digit zero-padding)
-    const formattedPONumber = `PO-${String(nextNumber).padStart(6, "0")}`;
 
     // Create new Purchase Order
     const newOrder = new PurchaseOrder({
