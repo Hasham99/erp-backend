@@ -7,6 +7,7 @@ import Supplier from "../models/newSupplier.model.js";
 import Account from "../models/Account.model.js";
 import Location from "../models/Location.model.js";
 import RawMaterial from "../models/RawMaterial.model.js";
+import DeductionRule from "../models/DeductionRule.model.js";
 import fetch from "node-fetch";
 
 const getPurchaseOrders = asyncHandler(async (req, res, next) => {
@@ -42,8 +43,42 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
       .populate("supplier", "supplierId name") // Populate Supplier Info
       .populate("agent", "supplierId name") // Populate Supplier Info
       .populate("location", "ccno ccname") // Populate Location Info
-      .populate("account", "materialId category subCategory variety subVariety whiteOrBrown itemYear"); // Populate Account Info
-
+      .populate("account", "materialId category subCategory variety subVariety whiteOrBrown itemYear") // Populate Account Info
+      .populate({
+        path: "product_parameters.moisture",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.broken",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.damage",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.chalky",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.ov",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.chobba",
+        model: "DeductionRule",
+        select: "type value",
+      })
+      .populate({
+        path: "product_parameters.look",
+        model: "DeductionRule",
+        select: "type value",
+      });
     // Apply pagination if limit is not "*"
     if (limit !== "*") {
       const parsedLimit = parseInt(limit) || 10;
@@ -105,14 +140,6 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
     } = req.body;
 
     // Validate required fields (PO number removed)
-    // if (!crop || !item || !type || !year || !supplier || !purchase_order_date || !start_date ||
-    //     !delivery_date || !location || !min_delivery_mode || !max_delivery_mode ||
-    //     !delivery_terms || !order_rate || !rate_per_kg || !payment_term ||
-    //     !weight_total_amount || !landed_cost || !account) {
-    //     // return next(new apiError(400, "Missing required fields"));
-    //     return next(new apiError(400, "Missing required fields"));
-    // }
-    // Validate required fields (PO number removed)
     const requiredFields = [
       "crop",
       "item",
@@ -163,22 +190,27 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
     if (!accountDoc)
       return next(new apiError(400, "Invalid account reference"));
 
+    // Fetch DeductionRule references for product parameters
+    const deductionTypes = [
+      "Moisture",
+      "Broken",
+      "Damage",
+      "Chalky",
+      "OV",
+      "Chobba",
+      "Look",
+    ];
+
+    const productParameters = {};
+    for (const type of deductionTypes) {
+      if (product_parameters[type.toLowerCase()]) {
+        const deductionRule = await DeductionRule.findOne({ type });
+        if (!deductionRule) return next(new apiError(400, `Invalid deduction rule for ${type}`));
+        productParameters[type.toLowerCase()] = deductionRule._id;
+      }
+    }
+
     // **Generate PO Number Sequentially**
-    // const lastOrder = await PurchaseOrder.findOne({ year }).sort({
-    //   createdAt: -1,
-    // });
-
-    // let nextNumber = 1; // Default if no existing PO
-    // if (lastOrder && lastOrder.purchase_order_number) {
-    //   const match = lastOrder.purchase_order_number.match(/PO-(\d+)-\d{4}/);
-    //   if (match) {
-    //     nextNumber = parseInt(match[1]) + 1;
-    //   }
-    // }
-
-    // // Format PO Number (Ensure six-digit zero-padding)
-    // const formattedPONumber = `PO-${String(nextNumber).padStart(6, "0")}`;
-
     const generatePONumber = async () => {
       const lastOrder = await PurchaseOrder.findOne().sort({ createdAt: -1 });
     
@@ -201,7 +233,6 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       return next(new apiError(500, "Duplicate PO number detected, please try again"));
     }
 
-
     // Create new Purchase Order
     const newOrder = new PurchaseOrder({
       crop,
@@ -211,7 +242,7 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       purchase_order_number: formattedPONumber,
       note,
       supplier: supplierDoc._id,
-      agent: agentDoc._id, // Store ObjectId instead of a string
+      agent: agentDoc._id,
       details,
       purchase_order_date,
       start_date,
@@ -228,7 +259,7 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       commission_per_bag,
       bardana_per_bag,
       misc_exp_per_bag,
-      product_parameters,
+      product_parameters: productParameters,
       payment_term,
       weight_total_amount,
       landed_cost,
