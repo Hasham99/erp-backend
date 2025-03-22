@@ -53,7 +53,7 @@ const PurchaseOrderSchema = new mongoose.Schema({
         moisture: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
         broken: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
         damage: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        chalkey: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
+        chalky: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
         ov: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
         chobba: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
         look: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" }

@@ -47,37 +47,37 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
       .populate({
         path: "product_parameters.moisture",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.broken",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.damage",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.chalky",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.ov",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.chobba",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       })
       .populate({
         path: "product_parameters.look",
         model: "DeductionRule",
-        select: "type value",
+        select: "type rules",
       });
     // Apply pagination if limit is not "*"
     if (limit !== "*") {
