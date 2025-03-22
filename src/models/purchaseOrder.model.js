@@ -38,25 +38,15 @@ const PurchaseOrderSchema = new mongoose.Schema({
     bardana_per_bag: { type: Number, default: 0 },
     misc_exp_per_bag: { type: Number, default: 0 },
 
-    // Product Parameter
-    // product_parameters: {
-    //     moisture_kg: { type: Number, default: 0 },
-    //     broken_rs: { type: Number, default: 0 },
-    //     damage_rs: { type: Number, default: 0 },
-    //     chalkey_rs: { type: Number, default: 0 },
-    //     ov_rs: { type: Number, default: 0 },
-    //     chobba_rs: { type: Number, default: 0 },
-    //     look_rs: { type: Number, default: 0 }
-    // },
      // Product Parameters with DeductionRule References
      product_parameters: {
-        moisture: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        broken: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        damage: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        chalky: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        ov: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        chobba: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" },
-        look: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" }
+        moisture: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true },
+        broken: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true },
+        damage: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule" ,required: true},
+        chalky: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true },
+        ov: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true },
+        chobba: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true },
+        look: { type: mongoose.Schema.Types.ObjectId, ref: "DeductionRule",required: true }
     },
     
 

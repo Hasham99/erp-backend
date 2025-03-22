@@ -8,14 +8,19 @@ import Account from "../models/Account.model.js";
 import Location from "../models/Location.model.js";
 import RawMaterial from "../models/RawMaterial.model.js";
 import DeductionRule from "../models/DeductionRule.model.js";
+import purchaseOrder from "../models/purchaseOrder.model.js";
 import fetch from "node-fetch";
+import mongoose from "mongoose";
 
 const getPurchaseOrders = asyncHandler(async (req, res, next) => {
   try {
-    const { page = 1, limit = "*" } = req.query;
+    let { page = 1, limit = "*" } = req.query;
+    page = parseInt(page) || 1;
+    limit = limit === "*" ? null : parseInt(limit) || 10;
+
     const query = {};
 
-    // Define number fields for exact match
+    // Number fields for exact match
     const numberFields = [
       "order_rate",
       "rate_per_kg",
@@ -38,64 +43,63 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
       }
     });
 
+    // Count total records
     const totalRecords = await PurchaseOrder.countDocuments(query);
+
+    // Fetch purchase orders with pagination
     let purchaseOrdersQuery = PurchaseOrder.find(query)
-      .populate("supplier", "supplierId name") // Populate Supplier Info
-      .populate("agent", "supplierId name") // Populate Supplier Info
-      .populate("location", "ccno ccname") // Populate Location Info
-      .populate("account", "materialId category subCategory variety subVariety whiteOrBrown itemYear") // Populate Account Info
-      .populate({
-        path: "product_parameters.moisture",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.broken",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.damage",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.chalky",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.ov",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.chobba",
-        model: "DeductionRule",
-        select: "type rules",
-      })
-      .populate({
-        path: "product_parameters.look",
-        model: "DeductionRule",
-        select: "type rules",
-      });
-    // Apply pagination if limit is not "*"
-    if (limit !== "*") {
-      const parsedLimit = parseInt(limit) || 10;
+      .populate("supplier", "supplierId name") 
+      .populate("agent", "supplierId name")
+      .populate("location", "ccno ccname")
+      .populate("account", "materialId category subCategory variety subVariety whiteOrBrown itemYear")
+      .lean(); // Convert to plain objects
+
+    if (limit) {
       purchaseOrdersQuery = purchaseOrdersQuery
-        .skip((page - 1) * parsedLimit)
-        .limit(parsedLimit);
+        .skip((page - 1) * limit)
+        .limit(limit);
     }
 
-    const purchaseOrders = await purchaseOrdersQuery;
+    let purchaseOrders = await purchaseOrdersQuery;
+
+    // Deduction types
+    const deductionTypes = ["Moisture", "Broken", "Damage", "Chalky", "OV", "Chobba", "Look"];
+
+    // Fetch all DeductionRule documents at once
+    const deductionRules = await DeductionRule.find({ type: { $in: deductionTypes } }).lean();
+
+    // Map purchase orders to extract correct rule data
+    purchaseOrders = purchaseOrders.map((po) => {
+      if (po.product_parameters) {
+        deductionTypes.forEach((type) => {
+          const ruleId = po.product_parameters[type.toLowerCase()]?.toString();
+
+          if (ruleId) {
+            const deductionRule = deductionRules.find((rule) => rule.type === type);
+            if (deductionRule) {
+              const matchedRule = deductionRule.rules.find((rule) => rule._id.toString() === ruleId);
+              po.product_parameters[type.toLowerCase()] = matchedRule
+                ? {
+                    _id: matchedRule._id,
+                    min: matchedRule.min,
+                    max: matchedRule.max,
+                    deduction: matchedRule.deduction,
+                  }
+                : null;
+            }
+          }
+        });
+      }
+      return po;
+    });
 
     res.status(200).json(
       new apiResponse(
         200,
         {
           totalRecords,
-          page: parseInt(page),
-          limit: limit === "*" ? "unlimited" : parseInt(limit),
+          page,
+          limit: limit || "unlimited",
           purchaseOrders,
         },
         "Purchase Orders fetched successfully"
@@ -105,7 +109,6 @@ const getPurchaseOrders = asyncHandler(async (req, res, next) => {
     next(new apiError(500, error.message || "Internal Server Error"));
   }
 });
-
 const createPurchaseOrder = asyncHandler(async (req, res, next) => {
   try {
     const {
@@ -139,13 +142,14 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       account,
     } = req.body;
 
-    // Validate required fields (PO number removed)
+    // Validate required fields
     const requiredFields = [
       "crop",
       "item",
       "type",
       "year",
       "supplier",
+      "agent",
       "purchase_order_date",
       "start_date",
       "delivery_date",
@@ -155,6 +159,13 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
       "delivery_terms",
       "order_rate",
       "rate_per_kg",
+      "brokery_terms",
+      "replace_reject",
+      "freight_per_kg",
+      "commission_per_bag",
+      "bardana_per_bag",
+      "misc_exp_per_bag",
+      "product_parameters",
       "payment_term",
       "weight_total_amount",
       "landed_cost",
@@ -165,55 +176,53 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
 
     if (missingFields.length > 0) {
       return next(
-        new apiError(
-          400,
-          `Missing required fields`,
-        //   `Missing required fields: ${missingFields.join(", ")}`,
-          missingFields
-        )
+        new apiError(400, `Missing required fields`, missingFields)
       );
     }
 
-    // Validate Supplier, Location, and Account References
+    // Validate References
     const supplierDoc = await Supplier.findOne({ supplierId: supplier });
-    if (!supplierDoc)
-      return next(new apiError(400, "Invalid supplier reference"));
+    if (!supplierDoc) return next(new apiError(400, "Invalid supplier reference"));
 
-    const agentDoc = await Supplier.findOne({ supplierId: agent }); // Find agent by supplierId
+    const agentDoc = await Supplier.findOne({ supplierId: agent });
     if (!agentDoc) return next(new apiError(400, "Invalid agent reference"));
 
     const locationDoc = await Location.findOne({ ccno: location });
-    if (!locationDoc)
-      return next(new apiError(400, "Invalid location reference"));
+    if (!locationDoc) return next(new apiError(400, "Invalid location reference"));
 
     const accountDoc = await RawMaterial.findOne({ materialId: account });
-    if (!accountDoc)
-      return next(new apiError(400, "Invalid account reference"));
+    if (!accountDoc) return next(new apiError(400, "Invalid account reference"));
 
     // Fetch DeductionRule references for product parameters
-    const deductionTypes = [
-      "Moisture",
-      "Broken",
-      "Damage",
-      "Chalky",
-      "OV",
-      "Chobba",
-      "Look",
-    ];
-
+    const deductionTypes = ["Moisture", "Broken", "Damage", "Chalky", "OV", "Chobba", "Look"];
     const productParameters = {};
+
     for (const type of deductionTypes) {
       if (product_parameters[type.toLowerCase()]) {
+        const ruleId = product_parameters[type.toLowerCase()]; // Get rule ID from request
+
         const deductionRule = await DeductionRule.findOne({ type });
         if (!deductionRule) return next(new apiError(400, `Invalid deduction rule for ${type}`));
-        productParameters[type.toLowerCase()] = deductionRule._id;
+
+        // Find the matched rule inside the rules array
+        const matchedRule = deductionRule.rules.find(rule => rule._id.toString() === ruleId);
+
+        if (!matchedRule) return next(new apiError(400, `Invalid rule ID for ${type}`));
+
+        // Store only the matched rule in productParameters
+        productParameters[type.toLowerCase()] = {
+          _id: matchedRule._id,
+          min: matchedRule.min,
+          max: matchedRule.max,
+          deduction: matchedRule.deduction,
+        };
       }
     }
 
-    // **Generate PO Number Sequentially**
+    // Generate PO Number Sequentially
     const generatePONumber = async () => {
       const lastOrder = await PurchaseOrder.findOne().sort({ createdAt: -1 });
-    
+
       let nextNumber = 1; // Default if no existing PO
       if (lastOrder && lastOrder.purchase_order_number) {
         const match = lastOrder.purchase_order_number.match(/PO-(\d+)/);
@@ -221,13 +230,13 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
           nextNumber = parseInt(match[1]) + 1;
         }
       }
-    
+
       return `PO-${String(nextNumber).padStart(6, "0")}`;
     };
-    // Inside your `createPurchaseOrder` function
+
     const formattedPONumber = await generatePONumber();
 
-    // Ensure uniqueness by checking before saving
+    // Ensure uniqueness of PO number
     const existingOrder = await PurchaseOrder.findOne({ purchase_order_number: formattedPONumber });
     if (existingOrder) {
       return next(new apiError(500, "Duplicate PO number detected, please try again"));
@@ -269,11 +278,9 @@ const createPurchaseOrder = asyncHandler(async (req, res, next) => {
     // Save to database
     const savedOrder = await newOrder.save();
 
-    res
-      .status(201)
-      .json(
-        new apiResponse(201, savedOrder, "Purchase Order created successfully")
-      );
+    res.status(201).json(
+      new apiResponse(201, savedOrder, "Purchase Order created successfully")
+    );
   } catch (error) {
     next(new apiError(500, error.message || "Error creating Purchase Order"));
   }
