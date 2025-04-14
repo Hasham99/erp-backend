@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { fetchAndStoreWeightData } from "../controllers/weightData.controller.js";
-import { fetchAndStoreQaqcDetails } from "../controllers/qaqcDetails.controller.js";
+import { fetchAndStoreQaqcDetails } from "../controllers/qaqcData.controller.js";
 
 // Runs every hour
 cron.schedule("0 * * * *", () => {

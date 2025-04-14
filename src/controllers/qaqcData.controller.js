@@ -1,5 +1,5 @@
 import axios from "axios";
-import qaqcDetails from "../models/qaqcDetails.model.js";
+import qaqcDetails from "../models/qaqcData.model.js";
 import { apiResponse } from "../utils/apiResponse.js"; // Adjust if needed
 import { apiError } from "../utils/apiError.js";       // Adjust if needed
 

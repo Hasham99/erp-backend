@@ -1,5 +1,5 @@
 import express from "express";
-import { fetchAndStoreQaqcDetails, getStoredQaqcDetails } from "../controllers/qaqcDetails.controller.js";
+import { fetchAndStoreQaqcDetails, getStoredQaqcDetails } from "../controllers/qaqcData.controller.js";
 
 const router = express.Router();
 
