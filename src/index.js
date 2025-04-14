@@ -2,7 +2,7 @@ import { app } from "./app.js";
 import dotenv from "dotenv";
 import connectDb from "./db/index.js";
 import cronJob from "./cronJobs/weightData.job.js";
-import cronJob01 from "./cronJobs/QAQCDetails.job.js";
+import cronJob01 from "./cronJobs/qaqcDetails.job.js";
 import { setupWebSocket } from "./socket.js"; // Import WebSocket setup
 import WeightData from "./models/weightData.model.js";
 import { createServer } from "http"; // Create HTTP server
