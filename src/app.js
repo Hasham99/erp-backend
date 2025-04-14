@@ -39,7 +39,7 @@ app.use(cookieParser())
 import weightDataRouter from "./routes/weightData.routes.js";
 app.use("/api/v1/weight-data", weightDataRouter);
 
-import qaqcDetailsRouter from "./routes/qaqcDetails.routes.js";
+import qaqcDetailsRouter from "./routes/qaqcData.routes.js";
 app.use("/api/v1/qaqc-details", qaqcDetailsRouter);
 
 import accountCodeRouter from "./routes/accountCode.routes.js";
