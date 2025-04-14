@@ -1,9 +1,9 @@
 import axios from "axios";
-import QAQCDetails from "../models/qaqcDetails.model.js";
+import qaqcDetails from "../models/qaqcDetails.model.js";
 import { apiResponse } from "../utils/apiResponse.js"; // Adjust if needed
 import { apiError } from "../utils/apiError.js";       // Adjust if needed
 
-export const getStoredQAQCDetails = async (req, res, next) => {
+export const getStoredQaqcDetails = async (req, res, next) => {
     try {
         let { page = 1, limit = 50, search = "", sortBy = "WeightID", sortOrder = "desc" } = req.query;
         page = parseInt(page);
@@ -26,12 +26,12 @@ export const getStoredQAQCDetails = async (req, res, next) => {
         }
 
         // ✅ Paginated query
-        const records = await QAQCDetails.find(query)
+        const records = await qaqcDetails.find(query)
             .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
             .skip((page - 1) * limit)
             .limit(limit);
 
-        const totalRecords = await QAQCDetails.countDocuments(query);
+        const totalRecords = await qaqcDetails.countDocuments(query);
 
         console.log(`✅ QAQC Records Found: ${records.length} / ${totalRecords}`);
 
@@ -39,12 +39,12 @@ export const getStoredQAQCDetails = async (req, res, next) => {
             new apiResponse(200, { totalRecords, page, limit, records }, "Stored QAQC data fetched successfully")
         );
     } catch (error) {
-        console.error("❌ Error in getStoredQAQCDetails:", error.message);
+        console.error("❌ Error in getStoredqaqcDetails:", error.message);
         return next(new apiError(500, "Internal Server Error"));
     }
 };
 
-export const fetchAndStoreQAQCDetails = async (req, res, next) => {
+export const fetchAndStoreQaqcDetails = async (req, res, next) => {
     try {
         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
         const pageSize = 1000;
@@ -53,7 +53,7 @@ export const fetchAndStoreQAQCDetails = async (req, res, next) => {
         console.log("\n🔄 Fetching QAQC details...");
 
         // ✅ Get last stored WeightID
-        const lastRecord = await QAQCDetails.findOne().sort({ WeightID: -1 }).select("WeightID");
+        const lastRecord = await qaqcDetails.findOne().sort({ WeightID: -1 }).select("WeightID");
         const lastFetchedWeightID = lastRecord ? lastRecord.WeightID : 0;
 
         console.log(`🔹 Last fetched WeightID: ${lastFetchedWeightID}`);

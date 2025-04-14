@@ -90,6 +90,6 @@ const qaqcDetailsSchema = new mongoose.Schema({
   UserName: String
 }, { timestamps: true }); // Adds createdAt and updatedAt automatically
 
-const QAQCDetails = mongoose.model('QAQCDetails', qaqcDetailsSchema);
+const qaqcDetails = mongoose.model('qaqcDetails', qaqcDetailsSchema);
 
-export default QAQCDetails;
+export default qaqcDetails;
