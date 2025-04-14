@@ -39,6 +39,9 @@ app.use(cookieParser())
 import weightDataRouter from "./routes/weightData.routes.js";
 app.use("/api/v1/weight-data", weightDataRouter);
 
+import QAQCDetailsRouter from "./routes/QAQCDetails.routes.js";
+app.use("/api/v1/qaqc-details", QAQCDetailsRouter);
+
 import accountCodeRouter from "./routes/accountCode.routes.js";
 app.use("/api/v1/suppliers", accountCodeRouter);
 
@@ -55,7 +58,6 @@ import purchaseOrderRoutes from "./routes/purchaseOrder.routes.js";
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 
 //v2 for the new versions
-
 import newSupplierRoutes from "./routes/newSupplier.routes.js";
 app.use("/api/v2/supplier", newSupplierRoutes);
 

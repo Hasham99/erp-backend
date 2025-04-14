@@ -1,7 +1,9 @@
 import axios from "axios";
 import WeightData from "../models/weightData.model.js";
+import PurchaseOrder from "../models/purchaseOrder.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 // export const fetchAndStoreWeightData = async (req, res, next) => {
 //     try {
@@ -179,8 +181,6 @@ export const fetchAndStoreWeightData = async (req, res, next) => {
     }
 };
 
-
-
 // ✅ Fetch Stored Weight Data with Pagination & Filtering
 export const getStoredWeightData = async (req, res, next) => {
     try {
@@ -222,3 +222,167 @@ export const getStoredWeightData = async (req, res, next) => {
     }
 };
 
+// Helper to get the start date based on range
+const getStartDate = (range) => {
+    const now = new Date();
+    switch (range) {
+        case "daily": return new Date(now.setDate(now.getDate() - 1));
+        case "weekly": return new Date(now.setDate(now.getDate() - 7));
+        case "monthly": return new Date(now.setMonth(now.getMonth() - 1));
+        case "yearly": return new Date(now.setFullYear(now.getFullYear() - 1));
+        default: return new Date("2000-01-01");
+    }
+};
+
+// 🚀 Main dashboard controller
+export const getDashboardSummary = asyncHandler(async (req, res) => {
+    const { range = "monthly" } = req.query;
+
+    const startDate = getStartDate(range);
+    const dateFilter = { createdAt: { $gte: startDate } };
+
+    // 🧾 Expected (PO) weight grouped by crop
+    const expectedWeightByCrop = await PurchaseOrder.aggregate([
+        { $match: dateFilter },
+        {
+            $group: {
+                _id: "$crop",
+                expectedWeight: { $sum: "$weight_total_amount" }
+            }
+        }
+    ]);
+
+    // ⚖️ Delivered (Weighbridge) weight grouped by product name
+    const deliveredWeightByCrop = await WeightData.aggregate([
+        { $match: dateFilter },
+        {
+            $group: {
+                _id: "$ProductName",
+                deliveredWeight: { $sum: "$NetWeight" }
+            }
+        }
+    ]);
+
+    // 🧠 Merge & calculate pending + fulfillment %
+    const cropSummary = expectedWeightByCrop.map((crop) => {
+        const delivered = deliveredWeightByCrop.find(d => d._id === crop._id);
+        const deliveredWeight = delivered ? delivered.deliveredWeight : 0;
+
+        return {
+            crop: crop._id,
+            expectedWeight: crop.expectedWeight,
+            deliveredWeight,
+            pendingWeight: crop.expectedWeight - deliveredWeight,
+            fulfillmentRate: crop.expectedWeight
+                ? ((deliveredWeight / crop.expectedWeight) * 100).toFixed(2) + "%"
+                : "0.00%"
+        };
+    });
+
+    res.status(200).json(new apiResponse(200, cropSummary, "Dashboard summary fetched successfully"));
+});
+
+export const getFulfillmentReport = asyncHandler(async (req, res) => {
+    const { range = "all" } = req.query;
+
+    // Setup date filters
+    let matchStage = {};
+    if (range === "daily") {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        matchStage.createdAt = { $gte: start, $lte: end };
+    } else if (range === "weekly") {
+        const now = new Date();
+        const start = new Date(now.setDate(now.getDate() - now.getDay()));
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        matchStage.createdAt = { $gte: start, $lte: end };
+    } else if (range === "monthly") {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+        matchStage.createdAt = { $gte: start, $lte: end };
+    }
+
+    // Aggregate expected weights from PurchaseOrder
+    const expected = await PurchaseOrder.aggregate([
+        {
+            $group: {
+                _id: {
+                    crop: { $toLower: { $trim: { input: "$crop" } } }
+                },
+                expectedWeight: { $sum: "$weight_total_amount" }
+            }
+        }
+    ]);
+
+    // Aggregate delivered weights from WeightData
+    const delivered = await WeightData.aggregate([
+        // { $match: matchStage },
+        {
+            $group: {
+                _id: {
+                    crop: { $toLower: { $trim: { input: "$ProductName" } } }
+                },
+                deliveredWeight: { $sum: "$NetWeight" }
+            }
+        }
+    ]);
+
+    // Merge both datasets
+    const deliveryMap = {};
+    for (let d of delivered) {
+        deliveryMap[d._id.crop] = d.deliveredWeight;
+    }
+
+    const report = expected.map(e => {
+        const crop = e._id.crop;
+        const expectedWeight = e.expectedWeight || 0;
+        const deliveredWeight = deliveryMap[crop] || 0;
+        const pendingWeight = expectedWeight - deliveredWeight;
+        const fulfillmentRate = expectedWeight > 0 ? ((deliveredWeight / expectedWeight) * 100).toFixed(2) + "%" : "0.00%";
+
+        return {
+            crop: crop.charAt(0).toUpperCase() + crop.slice(1),
+            expectedWeight,
+            deliveredWeight,
+            pendingWeight,
+            fulfillmentRate
+        };
+    });
+
+    return res.status(200).json(new apiResponse(200, report, "Fulfillment Report generated"));
+});
+
+export const getWeightSummary = async (req, res, next) => {
+    try {
+      // Aggregation to sum NetWeight by ProductName
+      const summaryData = await WeightData.aggregate([
+        {
+          // Group by ProductName and sum the NetWeight
+          $group: {
+            _id: {
+                crop: { $toLower: { $trim: { input: "$ProductName" } } }
+            },
+            // _id: "$ProductName", // Group by product name
+            deliveredWeight: { $sum: "$NetWeight" }, // Sum the NetWeight
+          },
+        },
+        {
+          // Optional: Sort by deliveredWeight descending
+          $sort: { deliveredWeight: -1 },
+        },
+      ]);
+  
+      // Return the aggregated data
+      return res.status(200).json(new apiResponse(200, summaryData, "Summary report fetched successfully"));
+    } catch (error) {
+      console.error("❌ Error in getWeightSummary:", error.message);
+      return next(new apiError(500, "Internal Server Error"));
+    }
+  };
+  
