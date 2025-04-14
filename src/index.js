@@ -1,8 +1,9 @@
 import { app } from "./app.js";
 import dotenv from "dotenv";
 import connectDb from "./db/index.js";
-import cronJob from "./cronJobs/weightData.job.js";
-import cronJob01 from "./cronJobs/qaqcDetails.job.js";
+// import cronJob from "./cronJobs/weightData.job.js";
+// import cronJob01 from "./cronJobs/qaqcDetails.job.js";
+import cronJob from "./cronJobs/cronJob.js";
 import { setupWebSocket } from "./socket.js"; // Import WebSocket setup
 import WeightData from "./models/weightData.model.js";
 import { createServer } from "http"; // Create HTTP server
@@ -86,7 +87,6 @@ connectDb()
 
         // Start cron job
         cronJob;
-        cronJob01;
     })
     .catch((error) => {
         console.log(`DB connection error: ${error}`);
