@@ -87,7 +87,34 @@ const qaqcDataSchema = new mongoose.Schema({
   ProductID1: Number,
   ProductName1: String,
 
-  UserName: String
+    // 🔁 Comparison fields
+    CmpBroke: Number,
+    CmpMoisture: Number,
+    CmpChalky: Number,
+    CmpCVOV: Number,
+    CmpChoba: Number,
+    CmpB1Percent: Number,
+    CmpDamage: Number,
+    CmpDDY: Number,
+    CmpDBPercent: Number,
+    CmpGreenGrain: Number,
+    CmpRedGrain: Number,
+    CmpPurity: Number,
+    CmpAflatoxin: Number,
+    CmpUnderMilled: Number,
+    CmpForeignM: Number,
+    CmpImmature: Number,
+    CmpPecks: Number,
+    CmpKett: Number,
+    CmpPaddy: Number,
+    CmpDedRs: Number,
+    CmpDedKgs: Number,
+    CmpDedPercent: Number,
+    CmpBags: Number,
+    CmpWeight: Number,
+    CmpPassFail: Number,
+
+    UserName: String
 }, { timestamps: true }); // Adds createdAt and updatedAt automatically
 
 const qaqcDetails = mongoose.model('qaqcDetails', qaqcDataSchema);

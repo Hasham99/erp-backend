@@ -44,7 +44,7 @@ export const getStoredQaqcDetails = async (req, res, next) => {
     }
 };
 
-export const fetchAndStoreQaqcDetails = async (req, res, next) => {
+export const fetchAndStoreQaqcDetails01 = async (req, res, next) => {
     try {
         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
         const pageSize = 1000;
@@ -123,3 +123,193 @@ export const fetchAndStoreQaqcDetails = async (req, res, next) => {
         if (res) return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+
+export const fetchAndStoreQaqcDetails02 = async (req, res) => {
+  try {
+    const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
+    const pageSize = 100;
+    let page = 1;
+
+    console.log("\n🔄 Fetching QAQC details...");
+
+    const lastRecord = await qaqcDetails.findOne().sort({ WeightID: -1 }).select("WeightID");
+    const lastFetchedWeightID = lastRecord ? lastRecord.WeightID : 0;
+
+    const firstResponse = await axios.get(`${apiUrl}?page=${page}`, {
+      headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+    });
+
+    const totalRecords = firstResponse.data?.TotalRecords || 0;
+    if (!totalRecords) {
+      return res.status(400).json({ message: "No QAQC records found." });
+    }
+
+    const totalPages = Math.ceil(totalRecords / pageSize);
+    let allNewRecords = [];
+
+    for (page = 1; page <= totalPages; page++) {
+      const response = await axios.get(`${apiUrl}?page=${page}`, {
+        headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+      });
+
+      const records = response.data?.Data || [];
+      const newRecords = records.filter(r => r.WeightID > lastFetchedWeightID);
+
+      for (let record of newRecords) {
+        const getNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+
+        record.CmpBroke = getNum(record.Broken1) - getNum(record.Broken);
+        record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture);
+        record.CmpChalky = getNum(record.Chalky1) - getNum(record.Chalky);
+        record.CmpCVOV = getNum(record.CVOV1) - getNum(record.CVOV);
+        record.CmpChoba = getNum(record.Choba1) - getNum(record.Choba);
+        record.CmpB1Percent = getNum(record.B1_Percent1) - getNum(record.B1_Percent);
+        record.CmpDamage = getNum(record.Damage1) - getNum(record.Damage);
+        record.CmpDDY = getNum(record.DDY1) - getNum(record.DDY);
+        record.CmpDBPercent = getNum(record.DB_Percent1) - getNum(record.DB_Percent);
+        record.CmpGreenGrain = getNum(record.GreenGrain1) - getNum(record.GreenGrain);
+        record.CmpRedGrain = getNum(record.RedGrain1) - getNum(record.RedGrain);
+        record.CmpPurity = getNum(record.Purity1) - getNum(record.Purity);
+        record.CmpAflatoxin = getNum(record.Aflatoxin1) - getNum(record.Aflatoxin);
+        record.CmpUnderMilled = getNum(record.UnderMilled1) - getNum(record.UnderMilled);
+        record.CmpForeignM = getNum(record.ForeignM1) - getNum(record.ForeignM);
+        record.CmpImmature = getNum(record.Immature1) - getNum(record.Immature);
+        record.CmpPecks = getNum(record.Pecks1) - getNum(record.Pecks);
+        record.CmpKett = getNum(record.Kett1) - getNum(record.Kett);
+        record.CmpPaddy = getNum(record.Paddy1) - getNum(record.Paddy);
+        record.CmpDedRs = getNum(record.DeductionInRs1) - getNum(record.DeductionInRs);
+        record.CmpDedKgs = getNum(record.DeductionInKgs1) - getNum(record.DeductionInKgs);
+        record.CmpDedPercent = getNum(record.DeductionInPercent1) - getNum(record.DeductionInPercent);
+        record.CmpBags = getNum(record.NoOfBags1) - getNum(record.NoOfBags);
+        record.CmpWeight = getNum(record.ProductWeight1) - getNum(record.ProductWeight);
+        record.CmpPassFail = getNum(record.PassFailDeduction1) - getNum(record.PassFailDeduction);
+      }
+
+      allNewRecords.push(...newRecords);
+    }
+
+    if (allNewRecords.length === 0) {
+      return res.status(200).json({ inserted: 0, updated: 0, message: "No new QAQC data available" });
+    }
+
+    const bulkOps = allNewRecords.map(record => ({
+      updateOne: {
+        filter: { WeightID: record.WeightID },
+        update: { $set: record },
+        upsert: true
+      }
+    }));
+
+    const result = await qaqcDetails.bulkWrite(bulkOps);
+    const newEntries = result.upsertedCount;
+    const updatedEntries = result.modifiedCount;
+
+    return res.status(200).json({
+      inserted: newEntries,
+      updated: updatedEntries,
+      message: "QAQC data synced successfully"
+    });
+
+} catch (error) {
+    console.error("❌ Error in fetchAndStoreQAQCDetails:", error.message);
+    if (res && typeof res.status === 'function') {
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+};
+
+export const fetchAndStoreQaqcDetails = async (req, res) => {
+    try {
+      const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
+      const pageSize = 100;
+      let page = 1;
+      let allNewRecords = [];
+  
+      console.log("\n🔄 Fetching QAQC details...");
+  
+      const lastRecord = await qaqcDetails.findOne().sort({ WeightID: -1 }).select("WeightID");
+      const lastFetchedWeightID = lastRecord ? lastRecord.WeightID : 0;
+  
+      let hasMorePages = true;
+  
+      while (hasMorePages) {
+        console.log(`➡️ Fetching Page ${page}...`);
+  
+        const response = await axios.get(`${apiUrl}?page=${page}`, {
+          headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+        });
+  
+        const records = response.data?.Data || [];
+        const newRecords = records.filter(r => r.WeightID > lastFetchedWeightID);
+  
+        for (let record of newRecords) {
+          const getNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+  
+          record.CmpBroke = getNum(record.Broken1) - getNum(record.Broken);
+          record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture);
+          record.CmpChalky = getNum(record.Chalky1) - getNum(record.Chalky);
+          record.CmpCVOV = getNum(record.CVOV1) - getNum(record.CVOV);
+          record.CmpChoba = getNum(record.Choba1) - getNum(record.Choba);
+          record.CmpB1Percent = getNum(record.B1_Percent1) - getNum(record.B1_Percent);
+          record.CmpDamage = getNum(record.Damage1) - getNum(record.Damage);
+          record.CmpDDY = getNum(record.DDY1) - getNum(record.DDY);
+          record.CmpDBPercent = getNum(record.DB_Percent1) - getNum(record.DB_Percent);
+          record.CmpGreenGrain = getNum(record.GreenGrain1) - getNum(record.GreenGrain);
+          record.CmpRedGrain = getNum(record.RedGrain1) - getNum(record.RedGrain);
+          record.CmpPurity = getNum(record.Purity1) - getNum(record.Purity);
+          record.CmpAflatoxin = getNum(record.Aflatoxin1) - getNum(record.Aflatoxin);
+          record.CmpUnderMilled = getNum(record.UnderMilled1) - getNum(record.UnderMilled);
+          record.CmpForeignM = getNum(record.ForeignM1) - getNum(record.ForeignM);
+          record.CmpImmature = getNum(record.Immature1) - getNum(record.Immature);
+          record.CmpPecks = getNum(record.Pecks1) - getNum(record.Pecks);
+          record.CmpKett = getNum(record.Kett1) - getNum(record.Kett);
+          record.CmpPaddy = getNum(record.Paddy1) - getNum(record.Paddy);
+          record.CmpDedRs = getNum(record.DeductionInRs1) - getNum(record.DeductionInRs);
+          record.CmpDedKgs = getNum(record.DeductionInKgs1) - getNum(record.DeductionInKgs);
+          record.CmpDedPercent = getNum(record.DeductionInPercent1) - getNum(record.DeductionInPercent);
+          record.CmpBags = getNum(record.NoOfBags1) - getNum(record.NoOfBags);
+          record.CmpWeight = getNum(record.ProductWeight1) - getNum(record.ProductWeight);
+          record.CmpPassFail = getNum(record.PassFailDeduction1) - getNum(record.PassFailDeduction);
+        }
+  
+        allNewRecords.push(...newRecords);
+  
+        if (records.length < pageSize) {
+          hasMorePages = false; // last page reached
+        } else {
+          page++;
+        }
+      }
+  
+      if (allNewRecords.length === 0) {
+        return res.status(200).json({ inserted: 0, updated: 0, message: "No new QAQC data available" });
+      }
+  
+      const bulkOps = allNewRecords.map(record => ({
+        updateOne: {
+          filter: { WeightID: record.WeightID },
+          update: { $set: record },
+          upsert: true
+        }
+      }));
+  
+      const result = await qaqcDetails.bulkWrite(bulkOps);
+      const newEntries = result.upsertedCount;
+      const updatedEntries = result.modifiedCount;
+  
+      return res.status(200).json({
+        inserted: newEntries,
+        updated: updatedEntries,
+        message: "QAQC data synced successfully"
+      });
+  
+    } catch (error) {
+      console.error("❌ Error in fetchAndStoreQAQCDetails:", error.message);
+      if (res && typeof res.status === 'function') {
+        return res.status(500).json({ message: "Internal Server Error" });
+      }
+    }
+  };
+  
