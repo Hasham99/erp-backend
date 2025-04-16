@@ -36,6 +36,9 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser())
 
+import {getSummaryController} from "./controllers/Summary.controller.js";
+app.use("/api/v1/summary", getSummaryController);
+
 import weightDataRouter from "./routes/weightData.routes.js";
 app.use("/api/v1/weight-data", weightDataRouter);
 

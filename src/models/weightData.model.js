@@ -39,6 +39,9 @@ const WeightDataSchema = new mongoose.Schema({
     BQuantity: { type: Number, default: 0 },
     Type: { type: String, default: "" },
     Weighbridge: { type: String, default: "" },
+    firstDateTime: { type: Date },
+    secondDateTime: { type: Date },
+
 }, { timestamps: true });
 
 const WeightData = mongoose.model("WeightData", WeightDataSchema);

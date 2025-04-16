@@ -5,6 +5,9 @@ import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat.js";
+
 // export const fetchAndStoreWeightData = async (req, res, next) => {
 //     try {
 //         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
@@ -91,6 +94,101 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 // };
 
 
+// export const fetchAndStoreWeightData = async (req, res, next) => {
+//     try {
+//         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+//         const pageSize = 1000;
+//         let page = 1;
+
+//         console.log("\n🔄 Fetching weight data...");
+
+//         // ✅ Get the last fetched WeightID
+//         const lastRecord = await WeightData.findOne().sort({ WeightID: -1 }).select("WeightID");
+//         const lastFetchedWeightID = lastRecord ? lastRecord.WeightID : 0;
+
+//         console.log(`🔹 Last fetched WeightID: ${lastFetchedWeightID}`);
+
+//         // ✅ Fetch the first page to get total records
+//         const firstResponse = await axios.get(`${apiUrl}?page=${page}`, {
+//             headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+//         });
+
+//         const totalRecords = firstResponse.data?.TotalRecords || 0;
+//         if (!totalRecords) {
+//             console.log("❌ No records found in API.");
+//             if (res) return res.status(400).json({ message: "No records found in API." });
+//             return;
+//         }
+
+//         console.log(`✅ Total Records Available: ${totalRecords}`);
+
+//         let newEntries = 0;
+//         let updatedEntries = 0;
+//         let totalPages = Math.ceil(totalRecords / pageSize);
+//         let allNewRecords = [];
+
+//         // ✅ Loop through all pages
+//         for (page = 1; page <= totalPages; page++) {
+//             console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+
+//             const response = await axios.get(`${apiUrl}?page=${page}`, {
+//                 headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+//             });
+
+//             const weightRecords = response.data?.Data || [];
+//             if (!weightRecords.length) {
+//                 console.log(`⚠️ No data found on Page ${page}, skipping...`);
+//                 continue;
+//             }
+
+//             // ✅ Collect records greater than lastFetchedWeightID
+//             const newRecords = weightRecords.filter(record => record.WeightID > lastFetchedWeightID);
+//             allNewRecords.push(...newRecords);
+
+//             if (newRecords.length > 0) {
+//                 console.log(`✅ Page ${page}: Found ${newRecords.length} new records.`);
+//             }
+//         }
+
+//         if (allNewRecords.length === 0) {
+//             console.log("\n⚠️ No new records found. Nothing to insert.");
+//             if (res) return res.status(200).json({ inserted: 0, updated: 0, message: "No new data available" });
+//             return;
+//         }
+
+//         // ✅ Perform bulk insert/update
+//         const bulkOps = allNewRecords.map(record => ({
+//             updateOne: {
+//                 filter: { WeightID: record.WeightID },
+//                 update: { $set: record },
+//                 upsert: true
+//             }
+//         }));
+
+//         const bulkResult = await WeightData.bulkWrite(bulkOps);
+//         newEntries = bulkResult.upsertedCount;
+//         updatedEntries = bulkResult.modifiedCount;
+
+//         console.log(`\n🎯 Data Fetching Completed!`);
+//         console.log(`🔹 New Entries Inserted: ${newEntries}`);
+//         console.log(`🔹 Existing Entries Updated: ${updatedEntries}\n`);
+
+//         if (res) return res.status(200).json({ inserted: newEntries, updated: updatedEntries, message: "Data fetched successfully" });
+
+//     } catch (error) {
+//         console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+
+//         if (res) return res.status(500).json({ message: "Internal Server Error" });
+
+//         // Only log the error in cron job, don't try to call `next()`
+//     }
+// };
+
+// ✅ Fetch Stored Weight Data with Pagination & Filtering
+
+
+dayjs.extend(customParseFormat);
+
 export const fetchAndStoreWeightData = async (req, res, next) => {
     try {
         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
@@ -153,14 +251,25 @@ export const fetchAndStoreWeightData = async (req, res, next) => {
             return;
         }
 
-        // ✅ Perform bulk insert/update
-        const bulkOps = allNewRecords.map(record => ({
-            updateOne: {
-                filter: { WeightID: record.WeightID },
-                update: { $set: record },
-                upsert: true
-            }
-        }));
+        // ✅ Perform bulk insert/update with date-time fields
+        const bulkOps = allNewRecords.map(record => {
+            const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+            const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+            return {
+                updateOne: {
+                    filter: { WeightID: record.WeightID },
+                    update: {
+                        $set: {
+                            ...record,
+                            firstDateTime,
+                            secondDateTime,
+                        }
+                    },
+                    upsert: true
+                }
+            };
+        });
 
         const bulkResult = await WeightData.bulkWrite(bulkOps);
         newEntries = bulkResult.upsertedCount;
@@ -181,7 +290,6 @@ export const fetchAndStoreWeightData = async (req, res, next) => {
     }
 };
 
-// ✅ Fetch Stored Weight Data with Pagination & Filtering
 export const getStoredWeightData = async (req, res, next) => {
     try {
         let { page = 1, limit = 50, search = "", sortBy = "WeightID", sortOrder = "desc" } = req.query;
