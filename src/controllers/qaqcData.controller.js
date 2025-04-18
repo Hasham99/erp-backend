@@ -249,8 +249,9 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
         for (let record of newRecords) {
           // const getNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
           const getNum = (val) => {
+            if (val === null || val === undefined || val === "") return null;
             const num = parseFloat(val);
-            return isNaN(num) || !isFinite(num) ? 0 : num;
+            return isNaN(num) ? null : num;
           };
   
           record.CmpBroke = getNum(record.Broken1) - getNum(record.Broken);
@@ -329,7 +330,7 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
       });
   
     } catch (error) {
-      console.error("❌ Error in fetchAndStoreQAQCDetails:", error.message);
+      console.error("❌ Error in fetchAndStoreQAQCDetails:", error?.message);
     
       if (error?.response) {
         console.error("❗ API Response Error:", {
