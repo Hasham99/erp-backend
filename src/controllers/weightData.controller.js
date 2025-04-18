@@ -188,7 +188,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat.js";
 
 dayjs.extend(customParseFormat);
 
-export const fetchAndStoreWeightData = async (req, res, next) => {
+export const fetchAndStoreWeightData_OldWorkingOne = async (req, res, next) => {
     try {
         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
         const pageSize = 1000;
@@ -286,6 +286,163 @@ export const fetchAndStoreWeightData = async (req, res, next) => {
         if (res) return res.status(500).json({ message: "Internal Server Error" });
 
         // Only log the error in cron job, don't try to call `next()`
+    }
+};
+
+// _WeightIDUnique
+export const fetchAndStoreWeightData = async (req, res) => {
+    try {
+        const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+        const pageSize = 1000;
+        let page = 1;
+
+        console.log("\n🔄 Fetching weight data...");
+
+        // ✅ Fetch existing WeightIDs once
+        const existingIDs = await WeightData.find({}, { WeightID: 1 }).lean();
+        const existingIDSet = new Set(existingIDs.map(doc => doc.WeightID));
+
+        // ✅ Fetch the first page to get total records
+        const firstResponse = await axios.get(`${apiUrl}?page=${page}`, {
+            headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+        });
+
+        const totalRecords = firstResponse.data?.TotalRecords || 0;
+        if (!totalRecords) {
+            console.log("❌ No records found in API.");
+            return res?.status(400).json({ message: "No records found in API." });
+        }
+
+        console.log(`✅ Total Records Available: ${totalRecords}`);
+
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        let allNewRecords = [];
+
+        // ✅ Loop through all pages
+        for (page = 1; page <= totalPages; page++) {
+            console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+
+            const response = await axios.get(`${apiUrl}?page=${page}`, {
+                headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+            });
+
+            const weightRecords = response.data?.Data || [];
+
+            if (!weightRecords.length) {
+                console.log(`⚠️ No data found on Page ${page}, skipping...`);
+                continue;
+            }
+
+            // ✅ Only records NOT in DB
+            const newRecords = weightRecords.filter(record => !existingIDSet.has(record.WeightID));
+            allNewRecords.push(...newRecords);
+
+            if (newRecords.length > 0) {
+                console.log(`✅ Page ${page}: Found ${newRecords.length} truly new records.`);
+            }
+        }
+
+        if (allNewRecords.length === 0) {
+            console.log("\n⚠️ No new records found. Nothing to insert.");
+            return res?.status(200).json({ inserted: 0, message: "No new data available" });
+        }
+
+        // ✅ Prepare insertOnly bulk operations
+        const bulkOps = allNewRecords.map(record => {
+            const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+            const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+            return {
+                insertOne: {
+                    document: {
+                        ...record,
+                        firstDateTime,
+                        secondDateTime
+                    }
+                }
+            };
+        });
+
+        const bulkResult = await WeightData.bulkWrite(bulkOps);
+        const newEntries = bulkResult.insertedCount || 0;
+
+        console.log(`\n🎯 Data Fetching Completed!`);
+        console.log(`🔹 New Entries Inserted: ${newEntries}`);
+
+        return res?.status(200).json({ inserted: newEntries, message: "Data fetched successfully" });
+
+    } catch (error) {
+        console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+        return res?.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+// _WeightIDDublication one
+export const fetchAndStoreWeightData_NeverUsed = async (req, res) => {
+    try {
+        const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+        const pageSize = 1000;
+        let page = 1;
+
+        console.log("\n🔄 Fetching weight data...");
+
+        const firstResponse = await axios.get(`${apiUrl}?page=${page}`, {
+            headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+        });
+
+        const totalRecords = firstResponse.data?.TotalRecords || 0;
+        if (!totalRecords) {
+            console.log("❌ No records found in API.");
+            return res?.status(400).json({ message: "No records found in API." });
+        }
+
+        console.log(`✅ Total Records Available: ${totalRecords}`);
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        let allRecords = [];
+
+        for (page = 1; page <= totalPages; page++) {
+            console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+
+            const response = await axios.get(`${apiUrl}?page=${page}`, {
+                headers: { "X-API-KEY": "API_key@garib#!.9Sons" }
+            });
+
+            const weightRecords = response.data?.Data || [];
+
+            if (!weightRecords.length) {
+                console.log(`⚠️ No data found on Page ${page}, skipping...`);
+                continue;
+            }
+
+            const preparedRecords = weightRecords.map(record => {
+                const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+                const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+                return {
+                    ...record,
+                    firstDateTime,
+                    secondDateTime
+                };
+            });
+
+            allRecords.push(...preparedRecords);
+        }
+
+        if (!allRecords.length) {
+            return res?.status(200).json({ inserted: 0, message: "No records found to insert" });
+        }
+
+        const insertResult = await WeightData.insertMany(allRecords, { ordered: false });
+        console.log(`🎯 Inserted ${insertResult.length} new records.`);
+
+        return res?.status(200).json({
+            inserted: insertResult.length,
+            message: "Data fetched and inserted successfully"
+        });
+
+    } catch (error) {
+        console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+        return res?.status(500).json({ message: "Internal Server Error" });
     }
 };
 
