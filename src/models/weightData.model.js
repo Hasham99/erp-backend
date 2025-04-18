@@ -35,7 +35,7 @@ const WeightDataSchema = new mongoose.Schema({
     Location: { type: String, required: true },
     Average: { type: Number, default: 0.0 },
     Containerno: { type: String, default: "0" },
-    NoOfBags: { type: String, default: "0" },
+    NoOfBags: { type: Number, default: "0" },
     BQuantity: { type: Number, default: 0 },
     Type: { type: String, default: "" },
     Weighbridge: { type: String, default: "" },

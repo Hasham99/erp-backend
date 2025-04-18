@@ -1,8 +1,9 @@
+import dayjs from "dayjs";
 import axios from "axios";
 import qaqcDetails from "../models/qaqcData.model.js";
 import { apiResponse } from "../utils/apiResponse.js"; // Adjust if needed
 import { apiError } from "../utils/apiError.js";       // Adjust if needed
-
+import customParseFormat from "dayjs/plugin/customParseFormat.js";
 export const getStoredQaqcDetails = async (req, res, next) => {
     try {
         let { page = 1, limit = 50, search = "", sortBy = "WeightID", sortOrder = "desc" } = req.query;
@@ -220,6 +221,7 @@ export const fetchAndStoreQaqcDetails02 = async (req, res) => {
 
 };
 
+dayjs.extend(customParseFormat);
 export const fetchAndStoreQaqcDetails = async (req, res) => {
     try {
       const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
@@ -245,7 +247,11 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
         const newRecords = records.filter(r => r.WeightID > lastFetchedWeightID);
   
         for (let record of newRecords) {
-          const getNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+          // const getNum = (val) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+          const getNum = (val) => {
+            const num = parseFloat(val);
+            return isNaN(num) || !isFinite(num) ? 0 : num;
+          };
   
           record.CmpBroke = getNum(record.Broken1) - getNum(record.Broken);
           record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture);
@@ -271,7 +277,24 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
           record.CmpDedPercent = getNum(record.DeductionInPercent1) - getNum(record.DeductionInPercent);
           record.CmpBags = getNum(record.NoOfBags1) - getNum(record.NoOfBags);
           record.CmpWeight = getNum(record.ProductWeight1) - getNum(record.ProductWeight);
-          record.CmpPassFail = getNum(record.PassFailDeduction1) - getNum(record.PassFailDeduction);
+          // record.CmpPassFail = getNum(record.PassFailDeduction1) - getNum(record.PassFailDeduction);
+          
+          // Set firstDateTime and secondDateTime
+          // record.firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+          // record.secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+          const firstDateTime = dayjs(
+            `${record.FirstDate} ${record.FirstTime}`,
+            ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"],
+            true // strict mode
+          );
+          record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+
+          const secondDateTime = dayjs(
+            `${record.SecondDate} ${record.SecondTime}`,
+            ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"],
+            true // strict mode
+          );
+          record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
         }
   
         allNewRecords.push(...newRecords);
@@ -307,9 +330,22 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
   
     } catch (error) {
       console.error("❌ Error in fetchAndStoreQAQCDetails:", error.message);
-      if (res && typeof res.status === 'function') {
+    
+      if (error?.response) {
+        console.error("❗ API Response Error:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      } else if (error?.request) {
+        console.error("❗ No response received from API.");
+      } else {
+        console.error("❗ Error setting up API request:", error.message);
+      }
+    
+      if (res && typeof res.status === "function") {
         return res.status(500).json({ message: "Internal Server Error" });
       }
     }
+    
   };
   

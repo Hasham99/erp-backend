@@ -1,11 +1,10 @@
 import axios from "axios";
+import dayjs from "dayjs";
 import WeightData from "../models/weightData.model.js";
 import PurchaseOrder from "../models/purchaseOrder.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-
-import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat.js";
 
 // export const fetchAndStoreWeightData = async (req, res, next) => {
