@@ -22,8 +22,9 @@ const PurchaseOrderSchema = new mongoose.Schema({
     location: { type: mongoose.Schema.Types.ObjectId, ref: "Location", required: true }, // Reference to Location
 
     // Delivery Modes
-    min_delivery_mode: { type: String, enum: ["Traller", "Truck", "Bag", "Katta", "KG"], required: true },
-    max_delivery_mode: { type: String, enum: ["Traller", "Truck", "Bag", "Katta", "KG"], required: true },
+    delivery_mode: { type: String, enum: ["Traller", "Truck", "Bag", "Katta", "KG"], required: true },
+    min_delivery_mode_kg: { type: Number, required: true },
+    max_delivery_mode_kg: { type: Number, required: true },
 
     // Delivery Terms
     delivery_terms: { type: String, required: true },
