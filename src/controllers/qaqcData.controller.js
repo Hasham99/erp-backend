@@ -464,46 +464,50 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
   const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
   const isHttpCall = res && typeof res.status === "function";
 
+  const getNum = val => {
+    if (val === null || val === undefined || val === "") return null;
+    const num = parseFloat(val);
+    return isNaN(num) ? null : num;
+  };
+
   try {
     console.log("🔄 Checking QAQC record counts...");
 
-    // Get record count from API
     const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
-    const totalRecords = firstResponse.data?.TotalRecords || 0;
+    const apiTotal = firstResponse.data?.TotalRecords || 0;
 
-    if (!totalRecords) {
+    if (!apiTotal) {
       console.log("❌ No records found in API.");
-      if (isHttpCall) return res.status(400).json({ message: "No records found in API." });
+      if (isHttpCall) return res.status(400).json({ message: "No records in API." });
       return;
     }
 
-    // Get local DB count
-    const dbCount = await qaqcDetails.countDocuments();
-    console.log(`✅ API Records: ${totalRecords}, Local DB: ${dbCount}`);
+    const localTotal = await qaqcDetails.countDocuments();
+    console.log(`✅ API Total: ${apiTotal}, Local DB Total: ${localTotal}`);
 
-    if (totalRecords === dbCount) {
-      console.log("✅ QAQC data already synced.");
-      if (isHttpCall) return res.status(200).json({ inserted: 0, message: "QAQC data already synced." });
+    if (apiTotal === localTotal) {
+      console.log("✅ Records match. No action needed.");
+      if (isHttpCall) return res.status(200).json({ inserted: 0, message: "Data already synced." });
       return;
     }
 
-    console.log("⚠️ Mismatch detected. Syncing full QAQC dataset...");
+    // 🆕 Try to insert only missing records first
+    const existingIDs = new Set(
+      (await qaqcDetails.find({}, "WeightID").lean()).map(r => r.WeightID)
+    );
+
     let page = 1;
-    let allRecords = [];
-    let hasMorePages = true;
+    let hasMore = true;
+    let newRecords = [];
 
-    while (hasMorePages) {
+    while (hasMore) {
       console.log(`➡️ Fetching Page ${page}...`);
       const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
-      const records = response.data?.Data || [];
+      const data = response.data?.Data || [];
 
-      const getNum = val => {
-        if (val === null || val === undefined || val === "") return null;
-        const num = parseFloat(val);
-        return isNaN(num) ? null : num;
-      };
+      const filtered = data.filter(r => !existingIDs.has(r.WeightID));
 
-      for (let record of records) {
+      for (let record of filtered) {
         record.CmpBroke = getNum(record.Broken) - getNum(record.Broken1);
         record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture1);
         record.CmpChalky = getNum(record.Chalky) - getNum(record.Chalky1);
@@ -530,28 +534,89 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
         record.CmpWeight = getNum(record.ProductWeight) - getNum(record.ProductWeight1);
 
         const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
-        record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
-
         const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+        record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
         record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
       }
 
-      allRecords.push(...records);
-      hasMorePages = records.length === pageSize;
+      newRecords.push(...filtered);
+      hasMore = data.length === pageSize;
       page++;
     }
 
-    // ✅ Force delete all old records (even if empty)
+    if (newRecords.length) {
+      console.log(`📥 Inserting ${newRecords.length} new QAQC records...`);
+      await qaqcDetails.insertMany(newRecords, { ordered: false });
+    } else {
+      console.log("⚠️ No new records found.");
+    }
+
+    const finalCount = await qaqcDetails.countDocuments();
+
+    if (finalCount === apiTotal) {
+      console.log("✅ Record count matches after partial insert.");
+      if (isHttpCall) return res.status(200).json({ inserted: newRecords.length, message: "New QAQC records inserted." });
+      return;
+    }
+
+    // ❌ Still not matched – force full sync
+    console.log("❌ Still mismatched. Performing full reset...");
+
     const { deletedCount } = await qaqcDetails.deleteMany({});
     console.log(`🧹 Deleted ${deletedCount} old QAQC records.`);
 
-    // Insert fresh records
-    console.log(`📥 Inserting ${allRecords.length} fresh QAQC records...`);
-    await qaqcDetails.insertMany(allRecords, { ordered: false });
+    // Re-download everything
+    page = 1;
+    hasMore = true;
+    const allRecords = [];
 
-    console.log("✅ QAQC sync complete.");
+    while (hasMore) {
+      console.log(`🔁 Fetching Page ${page} for full reset...`);
+      const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
+      const data = response.data?.Data || [];
+
+      for (let record of data) {
+        record.CmpBroke = getNum(record.Broken) - getNum(record.Broken1);
+        record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture1);
+        record.CmpChalky = getNum(record.Chalky) - getNum(record.Chalky1);
+        record.CmpCVOV = getNum(record.CVOV) - getNum(record.CVOV1);
+        record.CmpChoba = getNum(record.Choba) - getNum(record.Choba1);
+        record.CmpB1Percent = getNum(record.B1_Percent) - getNum(record.B1_Percent1);
+        record.CmpDamage = getNum(record.Damage1) - getNum(record.Damage1);
+        record.CmpDDY = getNum(record.DDY) - getNum(record.DDY1);
+        record.CmpDBPercent = getNum(record.DB_Percent) - getNum(record.DB_Percent1);
+        record.CmpGreenGrain = getNum(record.GreenGrain) - getNum(record.GreenGrain1);
+        record.CmpRedGrain = getNum(record.RedGrain) - getNum(record.RedGrain1);
+        record.CmpPurity = getNum(record.Purity) - getNum(record.Purity1);
+        record.CmpAflatoxin = getNum(record.Aflatoxin) - getNum(record.Aflatoxin1);
+        record.CmpUnderMilled = getNum(record.UnderMilled) - getNum(record.UnderMilled1);
+        record.CmpForeignM = getNum(record.ForeignM) - getNum(record.ForeignM1);
+        record.CmpImmature = getNum(record.Immature) - getNum(record.Immature1);
+        record.CmpPecks = getNum(record.Pecks) - getNum(record.Pecks1);
+        record.CmpKett = getNum(record.Kett) - getNum(record.Kett1);
+        record.CmpPaddy = getNum(record.Paddy) - getNum(record.Paddy1);
+        record.CmpDedRs = getNum(record.DeductionInRs) - getNum(record.DeductionInRs1);
+        record.CmpDedKgs = getNum(record.DeductionInKgs) - getNum(record.DeductionInKgs1);
+        record.CmpDedPercent = getNum(record.DeductionInPercent) - getNum(record.DeductionInPercent1);
+        record.CmpBags = getNum(record.NoOfBags) - getNum(record.NoOfBags1);
+        record.CmpWeight = getNum(record.ProductWeight) - getNum(record.ProductWeight1);
+
+        const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+        const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+        record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+        record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+      }
+
+      allRecords.push(...data);
+      hasMore = data.length === pageSize;
+      page++;
+    }
+
+    await qaqcDetails.insertMany(allRecords, { ordered: false });
+    console.log(`✅ Reinserted ${allRecords.length} records.`);
+
     if (isHttpCall) {
-      return res.status(200).json({ inserted: allRecords.length, message: "QAQC data refreshed successfully" });
+      return res.status(200).json({ reinserted: allRecords.length, message: "Full reset and insert completed." });
     }
 
   } catch (error) {
@@ -561,7 +626,6 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
     }
   }
 };
-
 // 🧠 Utility function to safely convert values to numbers or null
 const getNum = val => {
   if (val === null || val === undefined || val === "") return null;

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const WeightDataSchema = new mongoose.Schema({
-    WeightID: { type: Number, unique: true, required: true },
+    WeightID: { type: Number, required: true },
     VehicleNo: { type: String, },
     VehType: { type: String, default: "" },
     PartyID: { type: Number, default: 0 },
@@ -44,6 +44,7 @@ const WeightDataSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+// WeightDataSchema.index({ WeightID: 1 }, { unique: true });
 const WeightData = mongoose.model("WeightData", WeightDataSchema);
 
 export default WeightData;

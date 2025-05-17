@@ -534,38 +534,36 @@ export const fetchAndStoreWeightData = async (req, res) => {
   const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
   const pageSize = 1000;
   const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
-
   const isHttpCall = res && typeof res.status === "function";
 
   try {
     console.log("\n🔄 Fetching weight data...");
 
+    // Step 1: Fetch first page to get totalRecords
     const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
     const totalRecords = firstResponse.data?.TotalRecords || 0;
 
     if (!totalRecords) {
       console.log("❌ No records found in API.");
-      if (isHttpCall) {
-        return res.status(400).json({ message: "No records found in API." });
-      }
+      if (isHttpCall) return res.status(400).json({ message: "No records found in API." });
       return;
     }
 
-    console.log(`✅ API Reports Total Records: ${totalRecords}`);
+    console.log(`✅ API Total Records: ${totalRecords}`);
 
+    // Step 2: Get local DB count
     const dbCount = await WeightData.countDocuments();
-    console.log(`📦 Local DB Record Count: ${dbCount}`);
+    console.log(`📦 DB Record Count: ${dbCount}`);
 
     if (totalRecords === dbCount) {
-      console.log("✅ Data already synced. No action needed.");
-      if (isHttpCall) {
-        return res.status(200).json({ message: "Data is already up to date", inserted: 0 });
-      }
+      console.log("✅ Counts match. No action needed.");
+      if (isHttpCall) return res.status(200).json({ message: "Data is already up to date", inserted: 0 });
       return;
     }
 
-    console.log("⚠️ Mismatch detected. Syncing full dataset...");
+    console.log("⚠️ Mismatch detected. Checking for new records...");
 
+    // Step 3: Fetch all data from API
     const totalPages = Math.ceil(totalRecords / pageSize);
     let allRecords = [];
 
@@ -574,10 +572,9 @@ export const fetchAndStoreWeightData = async (req, res) => {
       const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
       const pageRecords = response.data?.Data || [];
 
-      const parsed = pageRecords.map(record => {
+      const parsedRecords = pageRecords.map(record => {
         const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
         const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
-
         return {
           ...record,
           firstDateTime,
@@ -586,28 +583,57 @@ export const fetchAndStoreWeightData = async (req, res) => {
         };
       });
 
-      allRecords.push(...parsed);
+      allRecords.push(...parsedRecords);
     }
 
-    console.log("🧹 Deleting old data...");
+    // Step 4: Check existing WeightIDs
+    const apiWeightIDs = allRecords.map(r => r.WeightID);
+    const existingWeightIDs = await WeightData.find({ WeightID: { $in: apiWeightIDs } }).distinct("WeightID");
+
+    const newRecords = allRecords.filter(r => !existingWeightIDs.includes(r.WeightID));
+
+    // Step 5: Insert only new records if found
+    if (newRecords.length > 0) {
+      console.log(`➕ Found ${newRecords.length} new records. Inserting...`);
+      await WeightData.insertMany(newRecords);
+    } else {
+      console.log("ℹ️ No new records found to insert.");
+    }
+
+    // Step 6: Re-check DB count
+    const updatedDbCount = await WeightData.countDocuments();
+    if (updatedDbCount === totalRecords) {
+      console.log("✅ Data synced after new inserts.");
+      if (isHttpCall) return res.status(200).json({ message: "Data synced successfully", inserted: newRecords.length });
+      return;
+    }
+
+    // Step 7: Final fallback - full refresh
+    console.log("🔁 Still mismatched. Performing full refresh...");
     await WeightData.deleteMany({});
-
-    console.log(`📥 Inserting ${allRecords.length} fresh records...`);
     await WeightData.insertMany(allRecords);
+    const finalCount = await WeightData.countDocuments();
 
-    console.log("✅ Sync complete.");
+    console.log("✅ Full refresh complete.");
     if (isHttpCall) {
-      return res.status(200).json({ inserted: allRecords.length, message: "Data refreshed successfully" });
+      return res.status(200).json({
+        message: "Data fully refreshed",
+        inserted: allRecords.length,
+        finalCount,
+        newRecordsInsertedBeforeRefresh: newRecords.length
+      });
     }
 
   } catch (error) {
     console.error("❌ Error in fetchAndStoreWeightData:", error.message);
     if (isHttpCall) {
-      return res.status(500).json({ message: "Internal Server Error" });
+      return res.status(500).json({
+        message: "Internal Server Error",
+        error: error.message
+      });
     }
   }
 };
-
 // _WeightIDDublication one
 export const fetchAndStoreWeightData_NeverUsed = async (req, res) => {
     try {

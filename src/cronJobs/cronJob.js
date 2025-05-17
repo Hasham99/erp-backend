@@ -18,7 +18,7 @@ cron.schedule("*/10 * * * *", () => {
 // Runs every hour
 // cron.schedule("0 * * * *", () => {
 // Runs every 15 minutes
-cron.schedule("*/10 * * * *", () => {
+cron.schedule("*/15 * * * *", () => {
     console.log("Running weight data sync job...");
     fetchAndStoreWeightData();
 });
