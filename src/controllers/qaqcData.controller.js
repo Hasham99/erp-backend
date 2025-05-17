@@ -354,7 +354,7 @@ export const fetchAndStoreQaqcDetails03 = async (req, res) => {
 // import qaqcDetails from "../models/qaqcDetails.js";
 // import dayjs from "dayjs";
 
-export const fetchAndStoreQaqcDetails = async (req, res) => {
+export const fetchAndStoreQaqcDetails17May25 = async (req, res) => {
   try {
     const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
     const pageSize = 100;
@@ -454,4 +454,155 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
       return res.status(500).json({ message: "Internal Server Error" });
     }
   }
+};
+
+
+
+export const fetchAndStoreQaqcDetails = async (req, res) => {
+  const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetQAQCDetails";
+  const pageSize = 100;
+  const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
+  const isHttpCall = res && typeof res.status === "function";
+
+  try {
+    console.log("🔄 Checking QAQC record counts...");
+
+    // Get record count from API
+    const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
+    const totalRecords = firstResponse.data?.TotalRecords || 0;
+
+    if (!totalRecords) {
+      console.log("❌ No records found in API.");
+      if (isHttpCall) return res.status(400).json({ message: "No records found in API." });
+      return;
+    }
+
+    // Get local DB count
+    const dbCount = await qaqcDetails.countDocuments();
+    console.log(`✅ API Records: ${totalRecords}, Local DB: ${dbCount}`);
+
+    if (totalRecords === dbCount) {
+      console.log("✅ QAQC data already synced.");
+      if (isHttpCall) return res.status(200).json({ inserted: 0, message: "QAQC data already synced." });
+      return;
+    }
+
+    console.log("⚠️ Mismatch detected. Syncing full QAQC dataset...");
+    let page = 1;
+    let allRecords = [];
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+      console.log(`➡️ Fetching Page ${page}...`);
+      const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
+      const records = response.data?.Data || [];
+
+      const getNum = val => {
+        if (val === null || val === undefined || val === "") return null;
+        const num = parseFloat(val);
+        return isNaN(num) ? null : num;
+      };
+
+      for (let record of records) {
+        record.CmpBroke = getNum(record.Broken) - getNum(record.Broken1);
+        record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture1);
+        record.CmpChalky = getNum(record.Chalky) - getNum(record.Chalky1);
+        record.CmpCVOV = getNum(record.CVOV) - getNum(record.CVOV1);
+        record.CmpChoba = getNum(record.Choba) - getNum(record.Choba1);
+        record.CmpB1Percent = getNum(record.B1_Percent) - getNum(record.B1_Percent1);
+        record.CmpDamage = getNum(record.Damage1) - getNum(record.Damage1);
+        record.CmpDDY = getNum(record.DDY) - getNum(record.DDY1);
+        record.CmpDBPercent = getNum(record.DB_Percent) - getNum(record.DB_Percent1);
+        record.CmpGreenGrain = getNum(record.GreenGrain) - getNum(record.GreenGrain1);
+        record.CmpRedGrain = getNum(record.RedGrain) - getNum(record.RedGrain1);
+        record.CmpPurity = getNum(record.Purity) - getNum(record.Purity1);
+        record.CmpAflatoxin = getNum(record.Aflatoxin) - getNum(record.Aflatoxin1);
+        record.CmpUnderMilled = getNum(record.UnderMilled) - getNum(record.UnderMilled1);
+        record.CmpForeignM = getNum(record.ForeignM) - getNum(record.ForeignM1);
+        record.CmpImmature = getNum(record.Immature) - getNum(record.Immature1);
+        record.CmpPecks = getNum(record.Pecks) - getNum(record.Pecks1);
+        record.CmpKett = getNum(record.Kett) - getNum(record.Kett1);
+        record.CmpPaddy = getNum(record.Paddy) - getNum(record.Paddy1);
+        record.CmpDedRs = getNum(record.DeductionInRs) - getNum(record.DeductionInRs1);
+        record.CmpDedKgs = getNum(record.DeductionInKgs) - getNum(record.DeductionInKgs1);
+        record.CmpDedPercent = getNum(record.DeductionInPercent) - getNum(record.DeductionInPercent1);
+        record.CmpBags = getNum(record.NoOfBags) - getNum(record.NoOfBags1);
+        record.CmpWeight = getNum(record.ProductWeight) - getNum(record.ProductWeight1);
+
+        const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+        record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+
+        const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+        record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+      }
+
+      allRecords.push(...records);
+      hasMorePages = records.length === pageSize;
+      page++;
+    }
+
+    // ✅ Force delete all old records (even if empty)
+    const { deletedCount } = await qaqcDetails.deleteMany({});
+    console.log(`🧹 Deleted ${deletedCount} old QAQC records.`);
+
+    // Insert fresh records
+    console.log(`📥 Inserting ${allRecords.length} fresh QAQC records...`);
+    await qaqcDetails.insertMany(allRecords, { ordered: false });
+
+    console.log("✅ QAQC sync complete.");
+    if (isHttpCall) {
+      return res.status(200).json({ inserted: allRecords.length, message: "QAQC data refreshed successfully" });
+    }
+
+  } catch (error) {
+    console.error("❌ Error in fetchAndStoreQaqcDetails:", error?.message);
+    if (isHttpCall) {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+};
+
+// 🧠 Utility function to safely convert values to numbers or null
+const getNum = val => {
+  if (val === null || val === undefined || val === "") return null;
+  const num = parseFloat(val);
+  return isNaN(num) ? null : num;
+};
+
+// 🔧 Transform a QAQC record to include computed fields
+const transformQAQCRecord = original => {
+  const record = { ...original };
+
+  record.CmpBroke = getNum(record.Broken) - getNum(record.Broken1);
+  record.CmpMoisture = getNum(record.Moisture1) - getNum(record.Moisture1);
+  record.CmpChalky = getNum(record.Chalky) - getNum(record.Chalky1);
+  record.CmpCVOV = getNum(record.CVOV) - getNum(record.CVOV1);
+  record.CmpChoba = getNum(record.Choba) - getNum(record.Choba1);
+  record.CmpB1Percent = getNum(record.B1_Percent) - getNum(record.B1_Percent1);
+  record.CmpDamage = getNum(record.Damage1) - getNum(record.Damage1);
+  record.CmpDDY = getNum(record.DDY) - getNum(record.DDY1);
+  record.CmpDBPercent = getNum(record.DB_Percent) - getNum(record.DB_Percent1);
+  record.CmpGreenGrain = getNum(record.GreenGrain) - getNum(record.GreenGrain1);
+  record.CmpRedGrain = getNum(record.RedGrain) - getNum(record.RedGrain1);
+  record.CmpPurity = getNum(record.Purity) - getNum(record.Purity1);
+  record.CmpAflatoxin = getNum(record.Aflatoxin) - getNum(record.Aflatoxin1);
+  record.CmpUnderMilled = getNum(record.UnderMilled) - getNum(record.UnderMilled1);
+  record.CmpForeignM = getNum(record.ForeignM) - getNum(record.ForeignM1);
+  record.CmpImmature = getNum(record.Immature) - getNum(record.Immature1);
+  record.CmpPecks = getNum(record.Pecks) - getNum(record.Pecks1);
+  record.CmpKett = getNum(record.Kett) - getNum(record.Kett1);
+  record.CmpPaddy = getNum(record.Paddy) - getNum(record.Paddy1);
+  record.CmpDedRs = getNum(record.DeductionInRs) - getNum(record.DeductionInRs1);
+  record.CmpDedKgs = getNum(record.DeductionInKgs) - getNum(record.DeductionInKgs1);
+  record.CmpDedPercent = getNum(record.DeductionInPercent) - getNum(record.DeductionInPercent1);
+  record.CmpBags = getNum(record.NoOfBags) - getNum(record.NoOfBags1);
+  record.CmpWeight = getNum(record.ProductWeight) - getNum(record.ProductWeight1);
+
+  const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+  record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+
+  const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
+  record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+
+  return record;
 };

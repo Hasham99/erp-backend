@@ -289,8 +289,9 @@ export const fetchAndStoreWeightData_OldWorkingOne = async (req, res, next) => {
     }
 };
 
-// _WeightIDUnique
-export const fetchAndStoreWeightData = async (req, res) => {
+
+// _WeightIDUnique 12-may-25
+export const fetchAndStoreWeightDataISSUED = async (req, res) => {
     try {
         const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
         const pageSize = 1000;
@@ -375,6 +376,236 @@ export const fetchAndStoreWeightData = async (req, res) => {
         console.error("❌ Error in fetchAndStoreWeightData:", error.message);
         return res?.status(500).json({ message: "Internal Server Error" });
     }
+};
+
+export const fetchAndStoreWeightData17May25 = async (req, res) => {
+    try {
+        const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+        const pageSize = 1000;
+        const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
+
+        console.log("\n🔄 Fetching weight data...");
+
+        // First request to get total record count
+        const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
+        const totalRecords = firstResponse.data?.TotalRecords || 0;
+
+        if (!totalRecords) {
+            console.log("❌ No records found in API.");
+            return res?.status(400).json({ message: "No records found in API." });
+        }
+
+        console.log(`✅ Total Records Available: ${totalRecords}`);
+
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        let allNewRecords = [];
+
+        // Process each page
+        for (let page = 1; page <= totalPages; page++) {
+            console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+
+            const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
+            const weightRecords = response.data?.Data || [];
+
+            if (!weightRecords.length) {
+                console.log(`⚠️ No data found on Page ${page}, skipping...`);
+                continue;
+            }
+
+            // Get WeightIDs from current page
+            const weightIDs = weightRecords.map(r => r.WeightID);
+
+            // Check which WeightIDs already exist
+            // const existingDocs = await WeightData.find({ WeightID: { $in: weightIDs } }, { WeightID: 1 }).lean();
+            // const existingIDSet = new Set(existingDocs.map(doc => doc.WeightID));
+            const existingDocs = await WeightData.find({ WeightID: { $in: weightIDs } }, { WeightID: 1 }).lean();
+            const existingIDSet = new Set(existingDocs.map(doc => doc.WeightID));
+
+            // Filter only new records
+            const newRecords = weightRecords.filter(r => !existingIDSet.has(r.WeightID));
+            allNewRecords.push(...newRecords);
+
+            console.log(`✅ Page ${page}: Found ${newRecords.length} new records.`);
+        }
+
+        if (allNewRecords.length === 0) {
+            console.log("\n⚠️ No new records found. Nothing to insert.");
+            return res?.status(200).json({ inserted: 0, message: "No new data available" });
+        }
+
+        // Prepare bulk insert operations
+        const bulkOps = allNewRecords.map(record => {
+            const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+            const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+            return {
+                insertOne: {
+                    document: {
+                        ...record,
+                        firstDateTime,
+                        secondDateTime
+                    }
+                }
+            };
+        });
+
+        const bulkResult = await WeightData.bulkWrite(bulkOps, { ordered: false });
+        const insertedCount = bulkResult.insertedCount || 0;
+
+        console.log(`\n🎯 Completed! Inserted: ${insertedCount} new entries.`);
+        return res?.status(200).json({ inserted: insertedCount, message: "Data fetched successfully" });
+
+    } catch (error) {
+        console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+        return res?.status(500).json({ message: "Internal Server Error" });
+    }
+};
+export const fetchAndStoreWeightData17May25New = async (req, res) => {
+    try {
+        const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+        const pageSize = 1000;
+        const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
+
+        console.log("\n🔄 Fetching weight data...");
+
+        // First API call to get total count
+        const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
+        const totalRecords = firstResponse.data?.TotalRecords || 0;
+
+        if (!totalRecords) {
+            console.log("❌ No records found in API.");
+            return res.status(400).json({ message: "No records found in API." });
+        }
+
+        console.log(`✅ API Reports Total Records: ${totalRecords}`);
+
+        // Get current DB count
+        const dbCount = await WeightData.countDocuments();
+        console.log(`📦 Local DB Record Count: ${dbCount}`);
+
+        if (totalRecords === dbCount) {
+            console.log("✅ Data already synced. No action needed.");
+            return res.status(200).json({ message: "Data is already up to date", inserted: 0 });
+        }
+
+        // Mismatch detected — fetch all data
+        console.log("⚠️ Mismatch detected. Syncing full dataset...");
+
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        let allRecords = [];
+
+        for (let page = 1; page <= totalPages; page++) {
+            console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+            const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
+            const pageRecords = response.data?.Data || [];
+
+            const parsed = pageRecords.map(record => {
+                const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+                const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+                return {
+                    ...record,
+                    firstDateTime,
+                    secondDateTime,
+                    createdAt: new Date()
+                };
+            });
+
+            allRecords.push(...parsed);
+        }
+
+        // Replace all data
+        console.log("🧹 Deleting old data...");
+        await WeightData.deleteMany({});
+
+        console.log(`📥 Inserting ${allRecords.length} fresh records...`);
+        await WeightData.insertMany(allRecords);
+
+        console.log("✅ Sync complete.");
+        return res.status(200).json({ inserted: allRecords.length, message: "Data refreshed successfully" });
+
+    } catch (error) {
+        console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+export const fetchAndStoreWeightData = async (req, res) => {
+  const apiUrl = "http://104.219.233.125:5695/api/weightmain/GetWeightData";
+  const pageSize = 1000;
+  const headers = { "X-API-KEY": "API_key@garib#!.9Sons" };
+
+  const isHttpCall = res && typeof res.status === "function";
+
+  try {
+    console.log("\n🔄 Fetching weight data...");
+
+    const firstResponse = await axios.get(`${apiUrl}?page=1`, { headers });
+    const totalRecords = firstResponse.data?.TotalRecords || 0;
+
+    if (!totalRecords) {
+      console.log("❌ No records found in API.");
+      if (isHttpCall) {
+        return res.status(400).json({ message: "No records found in API." });
+      }
+      return;
+    }
+
+    console.log(`✅ API Reports Total Records: ${totalRecords}`);
+
+    const dbCount = await WeightData.countDocuments();
+    console.log(`📦 Local DB Record Count: ${dbCount}`);
+
+    if (totalRecords === dbCount) {
+      console.log("✅ Data already synced. No action needed.");
+      if (isHttpCall) {
+        return res.status(200).json({ message: "Data is already up to date", inserted: 0 });
+      }
+      return;
+    }
+
+    console.log("⚠️ Mismatch detected. Syncing full dataset...");
+
+    const totalPages = Math.ceil(totalRecords / pageSize);
+    let allRecords = [];
+
+    for (let page = 1; page <= totalPages; page++) {
+      console.log(`➡️ Fetching Page ${page} of ${totalPages}...`);
+      const response = await axios.get(`${apiUrl}?page=${page}`, { headers });
+      const pageRecords = response.data?.Data || [];
+
+      const parsed = pageRecords.map(record => {
+        const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+        const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, "DD-MM-YYYY hh:mm:ss A").toDate();
+
+        return {
+          ...record,
+          firstDateTime,
+          secondDateTime,
+          createdAt: new Date()
+        };
+      });
+
+      allRecords.push(...parsed);
+    }
+
+    console.log("🧹 Deleting old data...");
+    await WeightData.deleteMany({});
+
+    console.log(`📥 Inserting ${allRecords.length} fresh records...`);
+    await WeightData.insertMany(allRecords);
+
+    console.log("✅ Sync complete.");
+    if (isHttpCall) {
+      return res.status(200).json({ inserted: allRecords.length, message: "Data refreshed successfully" });
+    }
+
+  } catch (error) {
+    console.error("❌ Error in fetchAndStoreWeightData:", error.message);
+    if (isHttpCall) {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
 };
 
 // _WeightIDDublication one

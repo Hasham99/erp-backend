@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const WeightDataSchema = new mongoose.Schema({
-    WeightID: { type: Number, },
+    WeightID: { type: Number, unique: true, required: true },
     VehicleNo: { type: String, },
     VehType: { type: String, default: "" },
     PartyID: { type: Number, default: 0 },
