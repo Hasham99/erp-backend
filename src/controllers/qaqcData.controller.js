@@ -1,9 +1,20 @@
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
 import axios from "axios";
 import qaqcDetails from "../models/qaqcData.model.js";
 import { apiResponse } from "../utils/apiResponse.js"; // Adjust if needed
 import { apiError } from "../utils/apiError.js";       // Adjust if needed
 import customParseFormat from "dayjs/plugin/customParseFormat.js";
+
+// const dayjs = require('dayjs');
+// const utc = require('dayjs/plugin/utc');
+// const timezone = require('dayjs/plugin/timezone');
+
+// Extend with plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 export const getStoredQaqcDetails = async (req, res, next) => {
     try {
         let { page = 1, limit = 50, search = "", sortBy = "WeightID", sortOrder = "desc" } = req.query;
@@ -533,10 +544,41 @@ export const fetchAndStoreQaqcDetails = async (req, res) => {
         record.CmpBags = getNum(record.NoOfBags) - getNum(record.NoOfBags1);
         record.CmpWeight = getNum(record.ProductWeight) - getNum(record.ProductWeight1);
 
-        const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
-        const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss A", "DD-MM-YYYY h:mm:ss A"], true);
-        record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
-        record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+// const rawFirstDate = (record.FirstDate || "").trim();
+// const rawFirstTime = (record.FirstTime || "").trim();
+// const rawSecondDate = (record.SecondDate || "").trim();
+// const rawSecondTime = (record.SecondTime || "").trim();
+
+        // const firstDateTime = dayjs(`${record.FirstDate} ${record.FirstTime}`, ["DD-MM-YYYY hh:mm:ss", "DD-MM-YYYY h:mm:ss"], true);
+        // const secondDateTime = dayjs(`${record.SecondDate} ${record.SecondTime}`, ["DD-MM-YYYY hh:mm:ss", "DD-MM-YYYY h:mm:ss"], true);
+        // record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+        // record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+//         const firstDateTime = dayjs.tz(`${rawFirstDate} ${rawFirstTime}`, ["DD-MM-YYYY HH:mm:ss", "DD-MM-YYYY H:mm:ss"], "Asia/Karachi");
+// record.firstDateTime = firstDateTime.isValid() ? firstDateTime.toDate() : null;
+
+// const secondDateTime = dayjs.tz(`${rawSecondDate} ${rawSecondTime}`, ["DD-MM-YYYY HH:mm:ss", "DD-MM-YYYY H:mm:ss"], "Asia/Karachi");
+// record.secondDateTime = secondDateTime.isValid() ? secondDateTime.toDate() : null;
+const parsePKTDateTime = (dateStr, timeStr) => {
+  if (!dateStr || !timeStr) return null;
+
+  // Parse the datetime string as Asia/Karachi timezone WITHOUT shifting
+  const dt = dayjs.tz(`${dateStr} ${timeStr}`, "DD-MM-YYYY HH:mm:ss", "Asia/Karachi");
+
+  if (!dt.isValid()) return null;
+
+  // Convert to UTC Date object to store
+  return dt.utc().toDate();
+};
+
+// Inside your record processing loop:
+const rawFirstDate = (record.FirstDate || "").trim();
+const rawFirstTime = (record.FirstTime || "").trim();
+const rawSecondDate = (record.SecondDate || "").trim();
+const rawSecondTime = (record.SecondTime || "").trim();
+
+record.firstDateTime = parsePKTDateTime(rawFirstDate, rawFirstTime);
+record.secondDateTime = parsePKTDateTime(rawSecondDate, rawSecondTime);
+
       }
 
       newRecords.push(...filtered);
